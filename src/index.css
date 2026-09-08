@@ -1,0 +1,12 @@
+:root {
+  --color-principal: #006A38;
+  --color-secundario: #78BE20;
+  --color-texto: #404040;
+  --color-fondo: #FFFFFF;
+}
+
+body {
+  background-color: var(--color-fondo);
+  color: var(--color-texto);
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+}
