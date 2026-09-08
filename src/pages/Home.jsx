@@ -1,10 +1,15 @@
 import Hero from '../components/Hero';
+import Services from '../components/Services';
+import AboutUs from '../components/AboutUs';
+import Informacion from '../components/Informacion';
 
 const Home = () => {
   return (
     <>
       <Hero />
-      {/* Las siguientes secciones (Servicios, Quiénes somos) irán aquí abajo */}
+      <Services />
+      <AboutUs />
+      <Informacion />
     </>
   );
 };
