@@ -1,22 +1,30 @@
-import { Container, Button } from 'react-bootstrap';
-import { supabase } from '../lib/supabase';
-import { useNavigate } from 'react-router-dom';
+import { Card, Row, Col } from 'react-bootstrap';
 
 const Dashboard = () => {
-  const navigate = useNavigate();
-
-  const handleLogout = async () => {
-    await supabase.auth.signOut();
-    navigate('/');
-  };
-
   return (
-    <Container className="mt-5">
-      <h1 style={{ color: 'var(--color-principal)', fontWeight: 'bold' }}>Panel Interno</h1>
-      <p className="text-muted">Bienvenido al sistema de gestión de la Clínica Socio Jurídica.</p>
-      <hr />
-      <Button variant="danger" onClick={handleLogout}>Cerrar sesión</Button>
-    </Container>
+    <div>
+      <h2 style={{ color: 'var(--color-principal)', fontWeight: 'bold' }} className="mb-4">
+        Resumen General
+      </h2>
+      <Row className="g-4">
+        <Col md={4}>
+          <Card className="shadow-sm border-0 h-100">
+            <Card.Body>
+              <Card.Title className="text-muted small fw-bold">FICHAS PENDIENTES</Card.Title>
+              <h2 style={{ color: 'var(--color-principal)' }} className="display-5 fw-bold">0</h2>
+            </Card.Body>
+          </Card>
+        </Col>
+        <Col md={4}>
+          <Card className="shadow-sm border-0 h-100">
+            <Card.Body>
+              <Card.Title className="text-muted small fw-bold">CITAS DE HOY</Card.Title>
+              <h2 style={{ color: 'var(--color-principal)' }} className="display-5 fw-bold">0</h2>
+            </Card.Body>
+          </Card>
+        </Col>
+      </Row>
+    </div>
   );
 };
 

@@ -4,6 +4,7 @@ import Home from './pages/Home';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import ProtectedRoute from './components/ProtectedRoute';
+import DashboardLayout from './layouts/Dashboard';
 
 function App() {
   return (
@@ -16,15 +17,10 @@ function App() {
 
         <Route path="/login" element={<Login />} />
 
-        {/* Rutas Privadas */}
-        <Route 
-          path="/dashboard" 
-          element={
-            <ProtectedRoute>
-              <Dashboard />
-            </ProtectedRoute>
-          } 
-        />
+        <Route element={<ProtectedRoute><DashboardLayout /></ProtectedRoute>}>
+          <Route path="/dashboard" element={<Dashboard />} />
+          {/* Aquí agregaremos /dashboard/fichas y /dashboard/citas después */}
+        </Route>
       </Routes>
     </BrowserRouter>
   );
