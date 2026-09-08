@@ -21,7 +21,7 @@ const Hero = () => {
           </Col>
           <Col lg={6}>
             <img 
-              src="/images/hero-institucional.jpg" 
+              src="/images/image.jpg" 
               alt="Frontis o equipo de la Clínica Socio Jurídica" 
               className="img-fluid rounded shadow-lg"
               style={{ objectFit: 'cover', width: '100%', maxHeight: '500px' }}
