@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Table, Badge, Button, Spinner } from 'react-bootstrap';
+import { Table, Badge, Spinner, Dropdown, DropdownButton } from 'react-bootstrap';
 import { supabase } from '../lib/supabase';
 
 const Citas = () => {
@@ -27,17 +27,33 @@ const Citas = () => {
     fetchCitas();
   }, []);
 
+  const handleStatusChange = async (id, newStatus) => {
+    try {
+      const { error } = await supabase
+        .from('appointments')
+        .update({ estado: newStatus })
+        .eq('id', id);
+
+      if (error) throw error;
+      
+      // Actualizar la interfaz instantáneamente sin recargar
+      setCitas(citas.map(cita => cita.id === id ? { ...cita, estado: newStatus } : cita));
+    } catch (error) {
+      console.error("Error al actualizar:", error.message);
+      alert("Error al actualizar el estado de la cita.");
+    }
+  };
+
   const getBadgeColor = (estado) => {
     switch (estado) {
       case 'Confirmada': return 'primary';
       case 'Atendida': return 'success';
       case 'Cancelada': return 'danger';
-      default: return 'warning'; // Pendiente
+      default: return 'warning';
     }
   };
 
   const formatDate = (dateString) => {
-    // Ajuste para evitar desfases de zona horaria al renderizar
     const date = new Date(`${dateString}T00:00:00`);
     return date.toLocaleDateString('es-CL');
   };
@@ -83,7 +99,19 @@ const Citas = () => {
                     </Badge>
                   </td>
                   <td className="text-end">
-                    <Button variant="outline-secondary" size="sm">Gestionar</Button>
+                    <DropdownButton
+                      variant="outline-secondary"
+                      size="sm"
+                      title="Cambiar estado"
+                      onSelect={(newStatus) => handleStatusChange(cita.id, newStatus)}
+                      align="end"
+                    >
+                      <Dropdown.Item eventKey="Pendiente" disabled={cita.estado === 'Pendiente'}>Pendiente</Dropdown.Item>
+                      <Dropdown.Item eventKey="Confirmada" disabled={cita.estado === 'Confirmada'}>Confirmada</Dropdown.Item>
+                      <Dropdown.Item eventKey="Cancelada" disabled={cita.estado === 'Cancelada'}>Cancelada</Dropdown.Item>
+                      <Dropdown.Divider />
+                      <Dropdown.Item eventKey="Atendida" disabled={cita.estado === 'Atendida'}>Atendida</Dropdown.Item>
+                    </DropdownButton>
                   </td>
                 </tr>
               ))}
