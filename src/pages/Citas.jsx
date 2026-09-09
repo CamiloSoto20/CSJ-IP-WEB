@@ -68,7 +68,7 @@ const Citas = () => {
         {loading ? (
           <div className="text-center py-5"><Spinner animation="border" style={{ color: 'var(--color-principal)' }} /></div>
         ) : (
-          <Table responsive hover className="align-middle mb-0">
+          <Table  hover className="align-middle mb-0">
             <thead className="text-muted small">
               <tr>
                 <th>FECHA Y HORA</th>
