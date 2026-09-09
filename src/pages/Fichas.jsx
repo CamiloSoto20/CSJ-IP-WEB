@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Table, Button, Badge, Modal, Form, Row, Col, Spinner } from 'react-bootstrap';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
+import { Link } from 'react-router-dom';
 
 const Fichas = () => {
   const { user } = useAuth();
@@ -66,7 +67,7 @@ const Fichas = () => {
           .from('participants')
           .insert([{ rut: formData.rut, nombre: formData.nombre, apellido: formData.apellido }])
           .select().single();
-          
+
         if (errPart) throw errPart;
         participante = nuevoParticipante;
       }
@@ -85,7 +86,7 @@ const Fichas = () => {
       alert('Ficha creada exitosamente en la base de datos');
       handleClose();
       fetchFichas(); // Recargar la tabla automáticamente para mostrar la nueva ficha
-      
+
     } catch (error) {
       console.error(error);
       alert('Error al guardar: ' + error.message);
@@ -134,7 +135,9 @@ const Fichas = () => {
                   </Badge>
                 </td>
                 <td className="text-end">
-                  <Button variant="outline-secondary" size="sm">Ver detalle</Button>
+                  <Button as={Link} to={`/dashboard/fichas/${ficha.id}`} variant="outline-secondary" size="sm">
+                    Ver detalle
+                  </Button>
                 </td>
               </tr>
             ))}
@@ -193,7 +196,7 @@ const Fichas = () => {
               <Form.Label className="small fw-bold">Motivo de Consulta</Form.Label>
               <Form.Control as="textarea" name="motivo" rows={4} value={formData.motivo} onChange={handleChange} required />
             </Form.Group>
-            
+
             <div className="d-flex justify-content-end gap-2">
               <Button variant="outline-secondary" onClick={handleClose} disabled={loading}>Cancelar</Button>
               <Button type="submit" style={{ backgroundColor: 'var(--color-principal)', borderColor: 'var(--color-principal)' }} disabled={loading}>
