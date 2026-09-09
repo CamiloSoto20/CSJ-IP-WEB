@@ -8,6 +8,7 @@ import DashboardLayout from './layouts/Dashboard';
 import Fichas from './pages/Fichas';
 import FichaDetalle from './pages/FichaDetalle';
 import Citas from './pages/Citas';
+import Charlas from './pages/Charlas';
 
 function App() {
   return (
@@ -25,6 +26,7 @@ function App() {
           <Route path="/dashboard/fichas" element={<Fichas />} />
           <Route path="/dashboard/fichas/:id" element={<FichaDetalle />} />
           <Route path="/dashboard/citas" element={<Citas />} />
+          <Route path="/dashboard/charlas" element={<Charlas />} />
           {/* Aquí agregaremos /dashboard/fichas y /dashboard/citas después */}
         </Route>
       </Routes>

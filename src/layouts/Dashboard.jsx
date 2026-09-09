@@ -18,7 +18,7 @@ const DashboardLayout = () => {
           <h5 className="mb-4 text-center mt-2" style={{ color: 'var(--color-secundario)', fontWeight: 'bold' }}>
             Clínica Interna
           </h5>
-          
+
           <Nav className="flex-column mb-auto gap-2">
             <Nav.Link as={Link} to="/dashboard" className="text-white px-3 py-2 rounded" style={{ backgroundColor: 'rgba(255,255,255,0.1)' }}>
               🏠 Inicio
@@ -29,8 +29,11 @@ const DashboardLayout = () => {
             <Nav.Link as={Link} to="/dashboard/citas" className="text-white px-3 py-2 rounded hover-effect">
               📅 Citas
             </Nav.Link>
+            <Nav.Link as={Link} className="text-white px-3 py-2 rounded hover-effect" to="/dashboard/charlas">
+              📢 Charlas
+            </Nav.Link>
           </Nav>
-          
+
           <hr className="text-secondary" />
           <Button variant="outline-light" onClick={handleLogout} className="w-100 mt-auto mb-2">
             Cerrar sesión
