@@ -5,6 +5,7 @@ import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import ProtectedRoute from './components/ProtectedRoute';
 import DashboardLayout from './layouts/Dashboard';
+import Fichas from './pages/Fichas';
 
 function App() {
   return (
@@ -19,6 +20,7 @@ function App() {
 
         <Route element={<ProtectedRoute><DashboardLayout /></ProtectedRoute>}>
           <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/dashboard/fichas" element={<Fichas />} />
           {/* Aquí agregaremos /dashboard/fichas y /dashboard/citas después */}
         </Route>
       </Routes>
