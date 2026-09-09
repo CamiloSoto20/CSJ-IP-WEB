@@ -7,6 +7,7 @@ import ProtectedRoute from './components/ProtectedRoute';
 import DashboardLayout from './layouts/Dashboard';
 import Fichas from './pages/Fichas';
 import FichaDetalle from './pages/FichaDetalle';
+import Citas from './pages/Citas';
 
 function App() {
   return (
@@ -23,6 +24,7 @@ function App() {
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/dashboard/fichas" element={<Fichas />} />
           <Route path="/dashboard/fichas/:id" element={<FichaDetalle />} />
+          <Route path="/dashboard/citas" element={<Citas />} />
           {/* Aquí agregaremos /dashboard/fichas y /dashboard/citas después */}
         </Route>
       </Routes>
