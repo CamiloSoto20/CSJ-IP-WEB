@@ -9,6 +9,7 @@ import Fichas from './pages/Fichas';
 import FichaDetalle from './pages/FichaDetalle';
 import Citas from './pages/Citas';
 import Charlas from './pages/Charlas';
+import CharaDetalle from './pages/CharlaDetalle';
 
 function App() {
   return (
@@ -27,6 +28,7 @@ function App() {
           <Route path="/dashboard/fichas/:id" element={<FichaDetalle />} />
           <Route path="/dashboard/citas" element={<Citas />} />
           <Route path="/dashboard/charlas" element={<Charlas />} />
+          <Route path="/dashboard/charlas/:id" element={<CharaDetalle />} />
           {/* Aquí agregaremos /dashboard/fichas y /dashboard/citas después */}
         </Route>
       </Routes>

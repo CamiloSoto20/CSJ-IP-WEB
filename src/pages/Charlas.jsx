@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Table, Button, Badge, Spinner, Modal, Form, Row, Col } from 'react-bootstrap';
+import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 
 const Charlas = () => {
@@ -46,7 +47,6 @@ const Charlas = () => {
         setSaving(true);
 
         try {
-            // cupos_disponibles inicia igual que cupos_totales
             const { error } = await supabase.from('talks').insert([{
                 ...formData,
                 cupos_totales: parseInt(formData.cupos_totales),
@@ -104,7 +104,9 @@ const Charlas = () => {
                                         </Badge>
                                     </td>
                                     <td className="text-end">
-                                        <Button variant="outline-secondary" size="sm">Ver inscritos</Button>
+                                        <Button as={Link} to={`/dashboard/charlas/${charla.id}`} variant="outline-secondary" size="sm">
+                                            Ver inscritos
+                                        </Button>
                                     </td>
                                 </tr>
                             ))}
@@ -118,7 +120,6 @@ const Charlas = () => {
                 )}
             </div>
 
-            {/* Modal para Nueva Charla */}
             <Modal show={showModal} onHide={handleClose} size="lg">
                 <Modal.Header closeButton>
                     <Modal.Title style={{ color: 'var(--color-principal)', fontWeight: 'bold' }}>Publicar Charla</Modal.Title>
