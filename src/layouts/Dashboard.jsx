@@ -31,6 +31,9 @@ const DashboardLayout = () => {
             <Nav.Link as={Link} to="/dashboard/charlas" className="text-white px-3 py-2 rounded hover-effect">
               📢 Charlas
             </Nav.Link>
+            <Nav.Link as={Link} className="text-white px-3 py-2 rounded hover-effect" to="/dashboard/informacion">
+              📰 Información
+            </Nav.Link>
           </Nav>
 
           <hr className="text-secondary" />

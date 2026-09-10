@@ -10,6 +10,7 @@ import FichaDetalle from './pages/FichaDetalle';
 import Citas from './pages/Citas';
 import Charlas from './pages/Charlas';
 import CharaDetalle from './pages/CharlaDetalle';
+import Informacion from './pages/Informacion';
 
 function App() {
   return (
@@ -29,6 +30,7 @@ function App() {
           <Route path="/dashboard/citas" element={<Citas />} />
           <Route path="/dashboard/charlas" element={<Charlas />} />
           <Route path="/dashboard/charlas/:id" element={<CharaDetalle />} />
+          <Route path="/dashboard/informacion" element={<Informacion />} />
           {/* Aquí agregaremos /dashboard/fichas y /dashboard/citas después */}
         </Route>
       </Routes>
