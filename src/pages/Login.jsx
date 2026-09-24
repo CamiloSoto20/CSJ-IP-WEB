@@ -1,109 +1,147 @@
-import { useState } from 'react';
-import { Container, Card, Form, Button, Alert } from 'react-bootstrap';
-import { Link, useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
+import { Form, Button, Alert, Spinner } from 'react-bootstrap';
+import './Login.css';
+import logoClinica from '../assets/LOGO_CSJ.jpg'; // Asegúrate de tener el logo en la carpeta assets
 
 const Login = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
-  const [errorMsg, setErrorMsg] = useState('');
+  const [error, setError] = useState(null);
+  
+  // Estado para el modo día/noche (true = claro, false = oscuro)
+  const [isLightMode, setIsLightMode] = useState(true);
+  
   const navigate = useNavigate();
 
+  // Aplica la clase dark-mode al contenedor principal cuando cambie el estado
+  const toggleTheme = () => {
+    setIsLightMode(!isLightMode);
+  };
+
   const handleLogin = async (e) => {
-    e.preventDefault(); // Evita que la página se recargue al enviar el formulario
+    e.preventDefault();
     setLoading(true);
-    setErrorMsg('');
+    setError(null);
 
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email: email,
-      password: password,
-    });
-
-    if (error) {
-      setErrorMsg('Credenciales incorrectas. Verifica tu correo y contraseña.');
-      setLoading(false);
-    } else {
-      // Login exitoso, redirigimos al dashboard interno
+    try {
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) throw error;
       navigate('/dashboard');
+    } catch (error) {
+      setError(error.message);
+    } finally {
+      setLoading(false);
     }
   };
 
   const handleMicrosoftLogin = () => {
-    alert("La conexión con Microsoft requiere configuración en el portal de Azure. Lo implementaremos más adelante.");
+    alert("Redirigiendo al portal de estudiantes (Microsoft)...");
   };
 
   return (
-    <div style={{ backgroundColor: 'var(--color-fondo)', minHeight: '100vh', display: 'flex', alignItems: 'center' }}>
-      <Container>
-        <div className="d-flex justify-content-center">
-          <Card className="shadow-lg border-0" style={{ maxWidth: '450px', width: '100%' }}>
-            <Card.Body className="p-5">
-              <div className="text-center mb-4">
-                <h2 style={{ color: 'var(--color-principal)', fontWeight: 'bold' }}>Clínica Socio Jurídica</h2>
-                <p className="text-muted">Acceso exclusivo para equipo interno</p>
-              </div>
+    <div className={`login-container ${!isLightMode ? 'dark-mode' : ''}`}>
+      
+      {/* Botón flotante para cambiar tema */}
+      <button 
+        className="theme-toggle" 
+        onClick={toggleTheme}
+        title={isLightMode ? "Cambiar a modo noche" : "Cambiar a modo día"}
+      >
+        {isLightMode ? '🌙' : '☀️'}
+      </button>
 
-              {errorMsg && <Alert variant="danger">{errorMsg}</Alert>}
-
-              <Form onSubmit={handleLogin}>
-                <Form.Group className="mb-3" controlId="formBasicEmail">
-                  <Form.Label className="small fw-bold text-muted">Correo electrónico institucional</Form.Label>
-                  <Form.Control 
-                    type="email" 
-                    placeholder="ejemplo@santotomas.cl" 
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    required
-                  />
-                </Form.Group>
-
-                <Form.Group className="mb-4" controlId="formBasicPassword">
-                  <Form.Label className="small fw-bold text-muted">Contraseña</Form.Label>
-                  <Form.Control 
-                    type="password" 
-                    placeholder="Ingresa tu contraseña" 
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    required
-                  />
-                </Form.Group>
-
-                <Button 
-                  style={{ backgroundColor: 'var(--color-principal)', borderColor: 'var(--color-principal)' }} 
-                  className="w-100 mb-3 py-2"
-                  type="submit"
-                  disabled={loading}
-                >
-                  {loading ? 'Iniciando sesión...' : 'Iniciar sesión'}
-                </Button>
-
-                <div className="d-flex align-items-center my-4">
-                  <hr className="flex-grow-1 text-muted" />
-                  <span className="mx-2 text-muted small">o ingresa con</span>
-                  <hr className="flex-grow-1 text-muted" />
-                </div>
-
-                <Button 
-                  variant="outline-secondary" 
-                  className="w-100 py-2 d-flex justify-content-center align-items-center gap-2"
-                  type="button"
-                  onClick={handleMicrosoftLogin}
-                >
-                  <img src="https://upload.wikimedia.org/wikipedia/commons/4/44/Microsoft_logo.svg" alt="Microsoft" style={{ width: '20px' }} />
-                  Microsoft
-                </Button>
-              </Form>
-              
-              <div className="text-center mt-4">
-                <Link to="/" className="text-decoration-none small text-muted">
-                  ← Volver a la página principal
-                </Link>
-              </div>
-            </Card.Body>
-          </Card>
+      {/* Panel Izquierdo - Formulario */}
+      <div className="login-form-section">
+        <div className="login-header">
+          {/* Espacio para PNG local */}
+          {/* Reemplaza la ruta del src cuando tengas tu imagen, o usa la variable importada arriba */}
+          <img 
+            src={logoClinica}
+            alt="Logo Clínica" 
+            className="login-logo" 
+            onError={(e) => { e.target.style.display = 'none' }} // Oculta si no encuentra la imagen
+          />
+          <h2>Iniciar sesión</h2>
         </div>
-      </Container>
+        
+        {error && <Alert variant="danger" className="small rounded-3">{error}</Alert>}
+        
+        <Form onSubmit={handleLogin}>
+          <Form.Group className="mb-4">
+            <Form.Label className="custom-label">Correo Electrónico</Form.Label>
+            <div className="input-group-custom">
+              <span className="input-icon">📧</span>
+              <Form.Control 
+                type="email" 
+                className="custom-input"
+                placeholder="ejemplo@correo.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required 
+              />
+            </div>
+          </Form.Group>
+
+          <Form.Group className="mb-3">
+            <Form.Label className="custom-label">Contraseña</Form.Label>
+            <div className="input-group-custom">
+              <span className="input-icon">🔒</span>
+              <Form.Control 
+                type="password" 
+                className="custom-input"
+                placeholder="Ingresa tu contraseña"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required 
+              />
+            </div>
+          </Form.Group>
+
+          <div className="text-end mb-4">
+            <a href="#" className="forgot-password" onClick={(e) => e.preventDefault()}>
+              ¿Olvidaste tu contraseña?
+            </a>
+          </div>
+
+          <Button 
+            type="submit" 
+            className="w-100 btn-ingresar mb-4" 
+            disabled={loading}
+          >
+            {loading ? <Spinner animation="border" size="sm" /> : 'Ingresar'}
+          </Button>
+
+          <div className="text-center my-3 text-muted small position-relative">
+            <hr className="w-100 position-absolute top-50 translate-middle-y z-0 opacity-25" />
+            <span className="bg-white px-3 position-relative z-1" style={{ backgroundColor: !isLightMode ? '#121212' : '#ffffff' }}>o ingresa con</span>
+          </div>
+
+          <Button 
+            variant="light" 
+            className="w-100 microsoft-btn mt-3 d-flex align-items-center justify-content-center gap-2"
+            onClick={handleMicrosoftLogin}
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+              <path d="M7.462 0H0v7.19h7.462V0zM16 0H8.538v7.19H16V0zM7.462 8.211H0V16h7.462V8.211zm8.538 0H8.538V16H16V8.211z"/>
+            </svg>
+            Acceso Estudiantes (Microsoft)
+          </Button>
+        </Form>
+      </div>
+
+      {/* Panel Derecho - Animación y Bienvenida */}
+      <div className="login-welcome-section">
+        <div className="welcome-content">
+          <h1>Bienvenido a la Clínica Socio Jurídica</h1>
+          <p>
+            Aquí es donde te ayudamos en lo social y jurídico y más cosas. Ingresa tus datos para acceder a tu panel de gestión.
+          </p>
+        </div>
+      </div>
+
     </div>
   );
 };
