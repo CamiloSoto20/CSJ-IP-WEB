@@ -13,6 +13,7 @@ import CharaDetalle from './pages/CharlaDetalle';
 import Informacion from './pages/Informacion';
 import PanelEstudiantes from './pages/PanelEstudiantes'
 import FichasEstudiante from './pages/FichaEstudiantes';
+import GestionEstudiantes from './pages/GestionEstudiantes';
 
 function App() {
   return (
@@ -33,7 +34,7 @@ function App() {
           <Route path="/dashboard/charlas" element={<Charlas />} />
           <Route path="/dashboard/charlas/:id" element={<CharaDetalle />} />
           <Route path="/dashboard/informacion" element={<Informacion />} />
-          <Route path="/dashboard/panel-estudiantes" element={<PanelEstudiantes />} />  
+          <Route path="/dashboard/gestion-estudiantes" element={<GestionEstudiantes />} />
           <Route path="/panel-estudiante" element={<PanelEstudiantes />} />
           <Route path="/panel-estudiante/fichas" element={<FichasEstudiante />} />
           <Route path="/panel-estudiante/citas" element={<Citas />} />
