@@ -14,6 +14,7 @@ import Informacion from './pages/Informacion';
 import PanelEstudiantes from './pages/PanelEstudiantes'
 import FichasEstudiante from './pages/FichaEstudiantes';
 import GestionEstudiantes from './pages/GestionEstudiantes';
+import PanelSoporte from './pages/PanelSoporte';
 
 function App() {
   return (
@@ -40,6 +41,7 @@ function App() {
           <Route path="/panel-estudiante/citas" element={<Citas />} />
           <Route path="/panel-estudiante/charlas" element={<Charlas />} />
           <Route path="/panel-estudiante/informacion" element={<Informacion />} />
+          <Route path="/panel-soporte" element={<PanelSoporte />} />
           {/* Aquí agregaremos /dashboard/fichas y /dashboard/citas después */}
         </Route>
       </Routes>

@@ -21,15 +21,24 @@ const Login = () => {
     setIsLightMode(!isLightMode);
   };
 
-  const handleLogin = async (e) => {
+const handleLogin = async (e) => {
     e.preventDefault();
     setLoading(true);
     setError(null);
 
     try {
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) throw error;
-      navigate('/dashboard');
+      
+      // Enrutamiento inteligente según el tipo de correo
+      const userEmail = email.toLowerCase();
+      if (userEmail.includes('soporte')) {
+        navigate('/panel-soporte');
+      } else if (userEmail.includes('estudiante')) {
+        navigate('/panel-estudiante');
+      } else {
+        navigate('/dashboard');
+      }
     } catch (error) {
       setError(error.message);
     } finally {
