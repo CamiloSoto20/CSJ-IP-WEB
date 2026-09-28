@@ -1,0 +1,155 @@
+.estudiante-wrapper {
+  --bg-color: #f4f7f5;
+  --card-bg: #ffffff;
+  --text-primary: #404040;
+  --text-secondary: #6c757d;
+  --border-color: #e9ecef;
+  
+  background-color: var(--bg-color);
+  color: var(--text-primary);
+  min-height: 100vh;
+  transition: all 0.3s ease;
+  padding: 1.5rem;
+}
+
+/* Modo Noche */
+.estudiante-wrapper.dark-mode {
+  --bg-color: #121212;
+  --card-bg: #1e1e1e;
+  --text-primary: #e0e0e0;
+  --text-secondary: #a0a0a0;
+  --border-color: #333333;
+}
+
+.panel-card {
+  background-color: var(--card-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 16px;
+  padding: 1.5rem;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+  height: 100%;
+}
+
+.estudiante-wrapper.dark-mode .panel-card {
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+}
+
+/* Columna Izquierda: Perfil y Soporte */
+.profile-section {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.profile-header h4 {
+  color: var(--color-principal, #006A38);
+  font-weight: 800;
+}
+
+.support-section {
+  background: linear-gradient(135deg, rgba(0, 106, 56, 0.1), rgba(120, 190, 32, 0.1));
+  border-radius: 12px;
+  padding: 1.2rem;
+  margin-top: auto;
+}
+
+.clock-display {
+  font-size: 2rem;
+  font-weight: 700;
+  color: var(--color-principal, #006A38);
+  font-family: monospace;
+  text-align: center;
+  margin-bottom: 1rem;
+}
+
+.estudiante-wrapper.dark-mode .clock-display {
+  color: var(--color-secundario, #78BE20);
+}
+
+/* Columna Central: Botones y Analíticas */
+.action-btn {
+  background-color: var(--card-bg);
+  color: var(--text-primary);
+  border: 2px solid var(--border-color);
+  border-radius: 12px;
+  padding: 1.5rem;
+  font-weight: 600;
+  font-size: 1.1rem;
+  transition: all 0.2s ease;
+  width: 100%;
+  text-align: center;
+}
+
+.action-btn:hover {
+  border-color: var(--color-principal, #006A38);
+  color: var(--color-principal, #006A38);
+  transform: translateY(-3px);
+}
+
+.analytics-box {
+  text-align: center;
+  padding: 1rem;
+  background-color: var(--bg-color);
+  border-radius: 12px;
+  border: 1px solid var(--border-color);
+}
+
+.analytics-value {
+  font-size: 1.8rem;
+  font-weight: 800;
+  color: var(--color-principal, #006A38);
+}
+
+.estudiante-wrapper.dark-mode .analytics-value {
+  color: var(--color-secundario, #78BE20);
+}
+
+/* Columna Derecha: Avisos y Participantes */
+.avisos-box {
+  background-color: rgba(255, 193, 7, 0.1);
+  border-left: 4px solid #ffc107;
+  padding: 1rem;
+  border-radius: 8px;
+  margin-bottom: 1.5rem;
+}
+
+.participantes-list {
+  max-height: 250px;
+  overflow-y: auto;
+  padding-right: 5px;
+}
+
+.participante-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.8rem 0;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.participante-item:last-child {
+  border-bottom: none;
+}
+
+.logo-container {
+  text-align: center;
+  margin-top: 2rem;
+}
+
+.logo-container img {
+  max-width: 120px;
+  opacity: 0.8;
+}
+
+/* Scrollbar personalizada */
+.participantes-list::-webkit-scrollbar {
+  width: 6px;
+}
+.participantes-list::-webkit-scrollbar-track {
+  background: var(--bg-color);
+  border-radius: 4px;
+}
+.participantes-list::-webkit-scrollbar-thumb {
+  background: var(--border-color);
+  border-radius: 4px;
+}
