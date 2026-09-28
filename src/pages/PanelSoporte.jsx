@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Container, Row, Col, Card, Button, Table, Badge, Modal, Form } from 'react-bootstrap';
+import { Container, Row, Col, Card, Button, Table, Badge, Modal, Form, Spinner } from 'react-bootstrap';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 
@@ -7,22 +7,66 @@ const PanelSoporte = () => {
   const navigate = useNavigate();
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [showMyPasswordModal, setShowMyPasswordModal] = useState(false);
+  const [showCreateModal, setShowCreateModal] = useState(false);
   const [estudianteSeleccionado, setEstudianteSeleccionado] = useState(null);
+  const [saving, setSaving] = useState(false);
 
-  // Datos simulados para visualizar la interfaz
-  const estudiantesMock = [
+  // Formulario para nuevo estudiante
+  const [formData, setFormData] = useState({
+    nombre: '', correo: '', password: '', carrera: 'Derecho'
+  });
+
+  // Datos locales para visualizar la tabla (luego se leerán de la BD)
+  const [estudiantes, setEstudiantes] = useState([
     { id: 1, nombre: 'Juan Pérez', correo: 'juan.perez@estudiante.csj.cl', estado: 'Activo' },
     { id: 2, nombre: 'María Silva', correo: 'maria.silva@estudiante.csj.cl', estado: 'Bloqueado' }
-  ];
+  ]);
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
     navigate('/login');
   };
 
-  const handleOpenPasswordModal = (est) => {
-    setEstudianteSeleccionado(est);
-    setShowPasswordModal(true);
+  const handleChange = (e) => setFormData({ ...formData, [e.target.name]: e.target.value });
+
+  // Función para crear la cuenta en Supabase
+  const handleCreateEstudiante = async (e) => {
+    e.preventDefault();
+    setSaving(true);
+
+    try {
+      const { error } = await supabase.auth.signUp({
+        email: formData.correo,
+        password: formData.password,
+        options: {
+          data: {
+            nombre: formData.nombre,
+            carrera: formData.carrera,
+            rol: 'estudiante' // Guardamos el rol en los metadatos del usuario
+          }
+        }
+      });
+
+      if (error) throw error;
+
+      alert(`Cuenta creada exitosamente para ${formData.nombre}.`);
+      
+      // Actualizamos la tabla visualmente para la demo
+      setEstudiantes([...estudiantes, { 
+        id: Date.now(), 
+        nombre: formData.nombre, 
+        correo: formData.correo, 
+        estado: 'Activo' 
+      }]);
+      
+      setShowCreateModal(false);
+      setFormData({ nombre: '', correo: '', password: '', carrera: 'Derecho' });
+    } catch (error) {
+      console.error(error);
+      alert('Error al crear la cuenta: ' + error.message);
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -76,7 +120,13 @@ const PanelSoporte = () => {
           <Col md={8}>
             <Card className="border-0 shadow-sm h-100">
               <Card.Body>
-                <h5 className="fw-bold mb-4">Gestión de Accesos (Estudiantes)</h5>
+                <div className="d-flex justify-content-between align-items-center mb-4">
+                  <h5 className="fw-bold mb-0">Gestión de Accesos (Estudiantes)</h5>
+                  <Button variant="outline-success" size="sm" onClick={() => setShowCreateModal(true)}>
+                    + Nuevo Estudiante
+                  </Button>
+                </div>
+                
                 <Table hover responsive className="align-middle">
                   <thead className="text-muted small">
                     <tr>
@@ -87,7 +137,7 @@ const PanelSoporte = () => {
                     </tr>
                   </thead>
                   <tbody>
-                    {estudiantesMock.map(est => (
+                    {estudiantes.map(est => (
                       <tr key={est.id}>
                         <td className="fw-bold">{est.nombre}</td>
                         <td className="text-secondary">{est.correo}</td>
@@ -95,8 +145,11 @@ const PanelSoporte = () => {
                           <Badge bg={est.estado === 'Activo' ? 'success' : 'danger'}>{est.estado}</Badge>
                         </td>
                         <td className="text-end">
-                          <Button variant="outline-warning" size="sm" onClick={() => handleOpenPasswordModal(est)}>
-                            Resetear Contraseña
+                          <Button variant="outline-warning" size="sm" onClick={() => {
+                            setEstudianteSeleccionado(est);
+                            setShowPasswordModal(true);
+                          }}>
+                            Resetear
                           </Button>
                         </td>
                       </tr>
@@ -108,7 +161,41 @@ const PanelSoporte = () => {
           </Col>
         </Row>
 
-        {/* Modal: Cambiar Contraseña Estudiante */}
+        {/* Modal: Crear Estudiante */}
+        <Modal show={showCreateModal} onHide={() => setShowCreateModal(false)} centered>
+          <Modal.Header closeButton>
+            <Modal.Title className="fs-5 fw-bold" style={{ color: 'var(--color-principal)' }}>Crear Cuenta de Estudiante</Modal.Title>
+          </Modal.Header>
+          <Modal.Body>
+            <Form onSubmit={handleCreateEstudiante}>
+              <Form.Group className="mb-3">
+                <Form.Label className="small fw-bold">Nombre Completo</Form.Label>
+                <Form.Control name="nombre" value={formData.nombre} onChange={handleChange} placeholder="Ej: Ana López" required />
+              </Form.Group>
+              <Form.Group className="mb-3">
+                <Form.Label className="small fw-bold">Correo Electrónico (Debe incluir 'estudiante')</Form.Label>
+                <Form.Control type="email" name="correo" value={formData.correo} onChange={handleChange} placeholder="ejemplo.estudiante@csj.cl" required />
+              </Form.Group>
+              <Form.Group className="mb-3">
+                <Form.Label className="small fw-bold">Carrera</Form.Label>
+                <Form.Select name="carrera" value={formData.carrera} onChange={handleChange} required>
+                  <option value="Derecho">Derecho</option>
+                  <option value="Trabajo Social">Trabajo Social</option>
+                  <option value="Psicología">Psicología</option>
+                </Form.Select>
+              </Form.Group>
+              <Form.Group className="mb-4">
+                <Form.Label className="small fw-bold">Contraseña Temporal</Form.Label>
+                <Form.Control type="password" name="password" value={formData.password} onChange={handleChange} placeholder="Mínimo 6 caracteres" required minLength={6} />
+              </Form.Group>
+              <Button type="submit" className="w-100" style={{ backgroundColor: 'var(--color-principal)', border: 'none' }} disabled={saving}>
+                {saving ? <Spinner animation="border" size="sm" /> : 'Registrar Estudiante'}
+              </Button>
+            </Form>
+          </Modal.Body>
+        </Modal>
+
+        {/* Modales de Cambio de Contraseña (Mantenemos los de interfaz gráfica) */}
         <Modal show={showPasswordModal} onHide={() => setShowPasswordModal(false)} centered>
           <Modal.Header closeButton>
             <Modal.Title className="fs-5 fw-bold">Resetear Contraseña</Modal.Title>
@@ -121,20 +208,12 @@ const PanelSoporte = () => {
               <Form.Label className="small fw-bold">Nueva Contraseña</Form.Label>
               <Form.Control type="text" placeholder="Ej: temporal1234" />
             </Form.Group>
-            <Button 
-              className="w-100" 
-              style={{ backgroundColor: 'var(--color-principal)', border: 'none' }}
-              onClick={() => {
-                alert('Contraseña actualizada correctamente (Simulación)');
-                setShowPasswordModal(false);
-              }}
-            >
+            <Button className="w-100" style={{ backgroundColor: 'var(--color-principal)', border: 'none' }} onClick={() => setShowPasswordModal(false)}>
               Confirmar Cambio
             </Button>
           </Modal.Body>
         </Modal>
 
-        {/* Modal: Cambiar Mi Contraseña (Soporte) */}
         <Modal show={showMyPasswordModal} onHide={() => setShowMyPasswordModal(false)} centered>
           <Modal.Header closeButton>
             <Modal.Title className="fs-5 fw-bold">Cambiar mi contraseña</Modal.Title>
@@ -148,14 +227,7 @@ const PanelSoporte = () => {
               <Form.Label className="small fw-bold">Nueva Contraseña</Form.Label>
               <Form.Control type="password" />
             </Form.Group>
-            <Button 
-              className="w-100" 
-              variant="dark"
-              onClick={() => {
-                alert('Contraseña personal actualizada (Simulación)');
-                setShowMyPasswordModal(false);
-              }}
-            >
+            <Button className="w-100" variant="dark" onClick={() => setShowMyPasswordModal(false)}>
               Actualizar Credenciales
             </Button>
           </Modal.Body>
