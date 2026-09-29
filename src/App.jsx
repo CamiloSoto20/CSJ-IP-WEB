@@ -16,6 +16,8 @@ import Informacion from './pages/Informacion';
 import PanelEstudiantes from './pages/PanelEstudiantes';
 import FichasEstudiante from './pages/FichaEstudiantes';
 import CitasEstudiante from './pages/CitasEstudiantes';
+import CharlasEstudiante from './pages/CharlaEstufiante';
+import InformacionEstudiante from './pages/InformacionEstudiante';
 
 // Módulo Soporte
 import PanelSoporte from './pages/PanelSoporte';
@@ -35,6 +37,8 @@ function App() {
         <Route path="/panel-estudiante" element={<ProtectedRoute><PanelEstudiantes /></ProtectedRoute>} />
         <Route path="/panel-estudiante/fichas" element={<ProtectedRoute><FichasEstudiante /></ProtectedRoute>} />
         <Route path="/panel-estudiante/citas" element={<ProtectedRoute><CitasEstudiante /></ProtectedRoute>} />
+        <Route path="/panel-estudiante/charlas" element={<ProtectedRoute><CharlasEstudiante /></ProtectedRoute>} />
+        <Route path="/panel-estudiante/informacion" element={<ProtectedRoute><InformacionEstudiante /></ProtectedRoute>} />
         {/* Futuras rutas de estudiante: Charlas e Información pueden ir aquí si requieren vistas adaptadas */}
 
         {/* Rutas Protegidas - SOPORTE TI (Vista independiente) */}

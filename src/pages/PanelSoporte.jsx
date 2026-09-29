@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Container, Row, Col, Card, Button, Table, Badge, Modal, Form, Spinner } from 'react-bootstrap';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
@@ -9,18 +9,36 @@ const PanelSoporte = () => {
   const [showMyPasswordModal, setShowMyPasswordModal] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [estudianteSeleccionado, setEstudianteSeleccionado] = useState(null);
+  
   const [saving, setSaving] = useState(false);
+  const [loadingData, setLoadingData] = useState(true);
+  const [estudiantes, setEstudiantes] = useState([]);
 
-  // Formulario para nuevo estudiante
   const [formData, setFormData] = useState({
     nombre: '', correo: '', password: '', carrera: 'Derecho'
   });
 
-  // Datos locales para visualizar la tabla (luego se leerán de la BD)
-  const [estudiantes, setEstudiantes] = useState([
-    { id: 1, nombre: 'Juan Pérez', correo: 'juan.perez@estudiante.csj.cl', estado: 'Activo' },
-    { id: 2, nombre: 'María Silva', correo: 'maria.silva@estudiante.csj.cl', estado: 'Bloqueado' }
-  ]);
+  // 1. Cargar estudiantes desde la base de datos al montar el componente
+  useEffect(() => {
+    fetchEstudiantes();
+  }, []);
+
+  const fetchEstudiantes = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('perfiles')
+        .select('*')
+        .eq('rol', 'estudiante')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setEstudiantes(data || []);
+    } catch (error) {
+      console.error("Error al cargar estudiantes:", error.message);
+    } finally {
+      setLoadingData(false);
+    }
+  };
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -29,36 +47,39 @@ const PanelSoporte = () => {
 
   const handleChange = (e) => setFormData({ ...formData, [e.target.name]: e.target.value });
 
-  // Función para crear la cuenta en Supabase
+  // 2. Crear estudiante en Auth e insertar en tabla perfiles
   const handleCreateEstudiante = async (e) => {
     e.preventDefault();
     setSaving(true);
 
     try {
-      const { error } = await supabase.auth.signUp({
+      // Paso A: Crear la cuenta de autenticación
+      const { data: authData, error: authError } = await supabase.auth.signUp({
         email: formData.correo,
         password: formData.password,
-        options: {
-          data: {
-            nombre: formData.nombre,
-            carrera: formData.carrera,
-            rol: 'estudiante' // Guardamos el rol en los metadatos del usuario
-          }
-        }
       });
 
-      if (error) throw error;
+      if (authError) throw authError;
+
+      // Paso B: Guardar el perfil público en la tabla 'perfiles'
+      if (authData.user) {
+        const { error: profileError } = await supabase
+          .from('perfiles')
+          .insert([
+            {
+              id: authData.user.id,
+              nombre: formData.nombre,
+              correo: formData.correo,
+              rol: 'estudiante'
+            }
+          ]);
+
+        if (profileError) throw profileError;
+      }
 
       alert(`Cuenta creada exitosamente para ${formData.nombre}.`);
       
-      // Actualizamos la tabla visualmente para la demo
-      setEstudiantes([...estudiantes, { 
-        id: Date.now(), 
-        nombre: formData.nombre, 
-        correo: formData.correo, 
-        estado: 'Activo' 
-      }]);
-      
+      fetchEstudiantes(); // Recargar la tabla con el nuevo usuario
       setShowCreateModal(false);
       setFormData({ nombre: '', correo: '', password: '', carrera: 'Derecho' });
     } catch (error) {
@@ -69,6 +90,7 @@ const PanelSoporte = () => {
     }
   };
 
+  // ... (Mantén el return y el JSX exactamente igual que lo tenías)
   return (
     <div style={{ backgroundColor: '#f4f7f5', minHeight: '100vh', padding: '2rem 0' }}>
       <Container>
