@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Container, Card, Form, Row, Col, Button } from 'react-bootstrap';
+import { Container, Card, Form, Row, Col, Button, Accordion } from 'react-bootstrap';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../../lib/supabase';
 import { useAuth } from '../../../context/AuthContext';
@@ -34,7 +34,6 @@ const NuevaFichaSocial = () => {
     setSaving(true);
     
     try {
-      // 1. Verificar si el participante existe o crearlo
       let { data: participante } = await supabase
         .from('participants')
         .select('id')
@@ -45,12 +44,8 @@ const NuevaFichaSocial = () => {
         const { data: nuevoPart, error: errPart } = await supabase
           .from('participants')
           .insert([{ 
-            rut: formData.rut, 
-            nombre: formData.nombre, 
-            fecha_nacimiento: formData.fechaNacimiento,
-            direccion: formData.direccion,
-            correo: formData.correo,
-            telefono: formData.celular,
+            rut: formData.rut, nombre: formData.nombre, fecha_nacimiento: formData.fechaNacimiento,
+            direccion: formData.direccion, correo: formData.correo, telefono: formData.celular,
             nacionalidad: formData.nacionalidad 
           }])
           .select().single();
@@ -59,12 +54,12 @@ const NuevaFichaSocial = () => {
         participante = nuevoPart;
       }
 
-      // 2. Insertar la Ficha Social
       const { error: errFicha } = await supabase
         .from('social_records')
         .insert([{
           participant_id: participante.id,
-          professional_id: user?.id,
+          // Evitamos el error de Foreign Key enviando null si el perfil no existe
+          professional_id: user?.id || null, 
           linea_atencion: formData.lineaAtencion,
           via_derivacion: formData.viaDerivacion,
           materia_especifica: formData.materiaEspecifica,
@@ -91,7 +86,7 @@ const NuevaFichaSocial = () => {
 
       if (errFicha) throw errFicha;
 
-      alert('Ficha Social guardada exitosamente en la base de datos.');
+      alert('Ficha Social guardada exitosamente.');
       navigate('/dashboard/fichas');
       
     } catch (error) {
@@ -116,7 +111,7 @@ const NuevaFichaSocial = () => {
 
       <Form onSubmit={handleSubmit}>
         
-        {/* I. IDENTIFICACIÓN DE USUARIOS */}
+        {/* I. IDENTIFICACIÓN DE USUARIOS (Siempre visible) */}
         <Card className="border-0 shadow-sm mb-4">
           <Card.Header className="bg-white border-bottom-0 pt-4 pb-0">
             <h6 className="fw-bold text-uppercase" style={{ color: 'var(--color-principal, #006A38)' }}>I. Identificación del Usuario</h6>
@@ -125,9 +120,7 @@ const NuevaFichaSocial = () => {
             <Row className="g-3">
               <Col md={6}><Form.Control name="nombre" placeholder="Nombre completo" onChange={handleChange} required /></Col>
               <Col md={3}><Form.Control name="rut" placeholder="Cédula de Identidad" onChange={handleChange} required /></Col>
-              <Col md={3}>
-                <Form.Control type="date" name="fechaNacimiento" onChange={handleChange} title="Fecha de Nacimiento" />
-              </Col>
+              <Col md={3}><Form.Control type="date" name="fechaNacimiento" onChange={handleChange} title="Fecha de Nacimiento" /></Col>
               <Col md={6}><Form.Control name="direccion" placeholder="Dirección completa" onChange={handleChange} /></Col>
               <Col md={3}><Form.Control name="celular" placeholder="N° de Celular" onChange={handleChange} /></Col>
               <Col md={3}><Form.Control type="email" name="correo" placeholder="Correo electrónico" onChange={handleChange} /></Col>
@@ -146,7 +139,7 @@ const NuevaFichaSocial = () => {
           </Card.Body>
         </Card>
 
-        {/* II. MOTIVO DE LA ATENCIÓN */}
+        {/* II. MOTIVO DE LA ATENCIÓN (Siempre visible) */}
         <Card className="border-0 shadow-sm mb-4">
           <Card.Header className="bg-white border-bottom-0 pt-4 pb-0">
             <h6 className="fw-bold text-uppercase" style={{ color: 'var(--color-principal, #006A38)' }}>II. Motivo de la Atención</h6>
@@ -170,69 +163,61 @@ const NuevaFichaSocial = () => {
           </Card.Body>
         </Card>
 
-        {/* III. SEGUIMIENTO Y GESTIONES */}
-        <Card className="border-0 shadow-sm mb-4">
-          <Card.Header className="bg-white border-bottom-0 pt-4 pb-0">
-            <h6 className="fw-bold text-uppercase" style={{ color: 'var(--color-principal, #006A38)' }}>III. Seguimiento y Gestiones</h6>
-          </Card.Header>
-          <Card.Body>
-            <div className="mb-3 p-3 bg-light rounded">
-              <Form.Label className="small fw-bold text-muted">Llamado Telefónico</Form.Label>
-              <Row className="g-2">
-                <Col md={2}><Form.Control name="llamadasCantidad" placeholder="Cantidad" onChange={handleChange} /></Col>
-                <Col md={3}><Form.Control name="llamadasFechas" placeholder="Fechas (ej. 10/10, 12/10)" onChange={handleChange} /></Col>
-                <Col md={7}><Form.Control name="llamadasResultado" placeholder="Resultado obtenido" onChange={handleChange} /></Col>
-              </Row>
-            </div>
-            <div className="mb-3 p-3 bg-light rounded">
-              <Form.Label className="small fw-bold text-muted">Visita Domiciliaria</Form.Label>
-              <Row className="g-2">
-                <Col md={2}><Form.Control name="visitasCantidad" placeholder="Cantidad" onChange={handleChange} /></Col>
-                <Col md={3}><Form.Control name="visitasFechas" placeholder="Fechas" onChange={handleChange} /></Col>
-                <Col md={7}><Form.Control name="visitasResultado" placeholder="Resultado obtenido" onChange={handleChange} /></Col>
-              </Row>
-            </div>
-            <div className="p-3 bg-light rounded">
-              <Form.Label className="small fw-bold text-muted">Reunión por Teams</Form.Label>
-              <Row className="g-2">
-                <Col md={2}><Form.Control name="teamsCantidad" placeholder="Cantidad" onChange={handleChange} /></Col>
-                <Col md={3}><Form.Control name="teamsFechas" placeholder="Fechas" onChange={handleChange} /></Col>
-                <Col md={7}><Form.Control name="teamsResultado" placeholder="Resultado obtenido" onChange={handleChange} /></Col>
-              </Row>
-            </div>
-          </Card.Body>
-        </Card>
+        {/* SECCIONES DESPLEGABLES PARA MANTENER LA VISTA LIMPIA */}
+        <Accordion className="mb-4 shadow-sm" alwaysOpen>
+          
+          {/* III. SEGUIMIENTO (Oculto por defecto) */}
+          <Accordion.Item eventKey="0" className="border-0 rounded-4 mb-3">
+            <Accordion.Header>
+              <h6 className="fw-bold text-uppercase mb-0" style={{ color: 'var(--color-principal, #006A38)' }}>
+                III. Seguimiento y Gestiones (Opcional)
+              </h6>
+            </Accordion.Header>
+            <Accordion.Body className="bg-white">
+              <div className="mb-3 p-3 bg-light rounded">
+                <Form.Label className="small fw-bold text-muted">Llamado Telefónico</Form.Label>
+                <Row className="g-2">
+                  <Col md={2}><Form.Control name="llamadasCantidad" placeholder="Cantidad" onChange={handleChange} /></Col>
+                  <Col md={3}><Form.Control name="llamadasFechas" placeholder="Fechas (ej. 10/10)" onChange={handleChange} /></Col>
+                  <Col md={7}><Form.Control name="llamadasResultado" placeholder="Resultado obtenido" onChange={handleChange} /></Col>
+                </Row>
+              </div>
+              <div className="mb-3 p-3 bg-light rounded">
+                <Form.Label className="small fw-bold text-muted">Visita Domiciliaria</Form.Label>
+                <Row className="g-2">
+                  <Col md={2}><Form.Control name="visitasCantidad" placeholder="Cantidad" onChange={handleChange} /></Col>
+                  <Col md={3}><Form.Control name="visitasFechas" placeholder="Fechas" onChange={handleChange} /></Col>
+                  <Col md={7}><Form.Control name="visitasResultado" placeholder="Resultado obtenido" onChange={handleChange} /></Col>
+                </Row>
+              </div>
+              <div className="p-3 bg-light rounded">
+                <Form.Label className="small fw-bold text-muted">Reunión por Teams</Form.Label>
+                <Row className="g-2">
+                  <Col md={2}><Form.Control name="teamsCantidad" placeholder="Cantidad" onChange={handleChange} /></Col>
+                  <Col md={3}><Form.Control name="teamsFechas" placeholder="Fechas" onChange={handleChange} /></Col>
+                  <Col md={7}><Form.Control name="teamsResultado" placeholder="Resultado obtenido" onChange={handleChange} /></Col>
+                </Row>
+              </div>
+            </Accordion.Body>
+          </Accordion.Item>
 
-        {/* IV. CIERRE Y DERIVACIÓN */}
-        <Card className="border-0 shadow-sm mb-4">
-          <Card.Header className="bg-white border-bottom-0 pt-4 pb-0">
-            <h6 className="fw-bold text-uppercase" style={{ color: 'var(--color-principal, #006A38)' }}>IV. Cierre y/o Derivación</h6>
-          </Card.Header>
-          <Card.Body>
-            <Row className="g-3">
-              <Col md={6}><Form.Control name="lugarDerivacion" placeholder="Nombre del lugar de derivación" onChange={handleChange} /></Col>
-              <Col md={6}><Form.Control name="profesionalDeriva" placeholder="Profesional donde deriva" onChange={handleChange} /></Col>
-              <Col md={8}><Form.Control name="causaCierre" placeholder="Motivo y/o causa del cierre de la intervención" onChange={handleChange} /></Col>
-              <Col md={4}><Form.Control type="date" name="fechaCierre" title="Fecha cierre de atención" onChange={handleChange} /></Col>
-            </Row>
-          </Card.Body>
-        </Card>
-
-        {/* V. PROFESIONAL QUE ATIENDE */}
-        <Card className="border-0 shadow-sm mb-4 bg-light">
-          <Card.Body>
-            <Row className="align-items-center">
-              <Col md={6}>
-                <Form.Label className="small fw-bold text-muted mb-1">Profesional que atiende</Form.Label>
-                <Form.Control value="Nombre Coordinadora Sesión" disabled readOnly />
-              </Col>
-              <Col md={6}>
-                <Form.Label className="small fw-bold text-muted mb-1">Cargo</Form.Label>
-                <Form.Control value="Coordinadora" disabled readOnly />
-              </Col>
-            </Row>
-          </Card.Body>
-        </Card>
+          {/* IV. CIERRE (Oculto por defecto) */}
+          <Accordion.Item eventKey="1" className="border-0 rounded-4">
+            <Accordion.Header>
+              <h6 className="fw-bold text-uppercase mb-0" style={{ color: 'var(--color-principal, #006A38)' }}>
+                IV. Cierre y/o Derivación (Solo al finalizar caso)
+              </h6>
+            </Accordion.Header>
+            <Accordion.Body className="bg-white">
+              <Row className="g-3">
+                <Col md={6}><Form.Control name="lugarDerivacion" placeholder="Nombre del lugar de derivación" onChange={handleChange} /></Col>
+                <Col md={6}><Form.Control name="profesionalDeriva" placeholder="Profesional donde deriva" onChange={handleChange} /></Col>
+                <Col md={8}><Form.Control name="causaCierre" placeholder="Motivo y/o causa del cierre de la intervención" onChange={handleChange} /></Col>
+                <Col md={4}><Form.Control type="date" name="fechaCierre" title="Fecha cierre de atención" onChange={handleChange} /></Col>
+              </Row>
+            </Accordion.Body>
+          </Accordion.Item>
+        </Accordion>
 
         {/* CONTROLES */}
         <div className="d-flex justify-content-end gap-3 pb-5">
