@@ -1,25 +1,32 @@
-import { Table, Button, Container } from 'react-bootstrap';
-import { Link } from 'react-router-dom';
+import { Table, Container, Dropdown, DropdownButton, ButtonGroup } from 'react-bootstrap';
+import { useNavigate } from 'react-router-dom';
 
 const ListaFichas = () => {
+  const navigate = useNavigate();
+
   return (
     <Container fluid className="py-4">
       {/* CABECERA Y BOTONES SEPARADOS */}
       <div className="d-flex justify-content-between align-items-center mb-4">
         <div>
-          <h2 className="fw-bold mb-1" style={{ color: 'var(--color-principal)' }}>Gestión de Fichas</h2>
+          <h2 className="fw-bold mb-1" style={{ color: 'var(--color-principal, #006A38)' }}>Gestión de Fichas</h2>
           <p className="text-muted mb-0">Panel de administración exclusivo de la Coordinadora</p>
         </div>
         <div className="d-flex gap-2">
-          {/* Botón temporalmente inactivo hasta que hagamos la vista de Nueva Ficha */}
-          <Button 
-            as={Link} 
-            to="/dashboard/coordinadora/fichas/nueva"
-            style={{ backgroundColor: 'var(--color-principal)', border: 'none' }} 
-            className="fw-bold text-white shadow-sm"
+          {/* BOTÓN DESPLEGABLE */}
+          <DropdownButton
+            as={ButtonGroup}
+            title="+ Nueva Ficha"
+            style={{ backgroundColor: 'var(--color-principal, #006A38)', border: 'none' }}
+            className="shadow-sm"
           >
-            + Nueva Ficha Social
-          </Button>
+            <Dropdown.Item onClick={() => navigate('/dashboard/fichas/nueva-social')} className="fw-bold text-success">
+              Ficha Social
+            </Dropdown.Item>
+            <Dropdown.Item onClick={() => alert('Próximamente: Modal Ficha Jurídica')} className="fw-bold text-primary">
+              Ficha Jurídica
+            </Dropdown.Item>
+          </DropdownButton>
         </div>
       </div>
 
