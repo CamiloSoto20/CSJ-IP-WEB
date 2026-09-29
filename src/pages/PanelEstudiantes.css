@@ -204,3 +204,14 @@
   from { opacity: 0; transform: translateY(30px); }
   to { opacity: 1; transform: translateY(0); }
 }
+
+/* Ajustes para react-calendar */
+.react-calendar {
+  border: none !important;
+  font-family: inherit !important;
+  border-radius: 12px;
+}
+.react-calendar__tile--active {
+  background: var(--color-principal) !important;
+  border-radius: 8px;
+}
