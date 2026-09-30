@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Container, Card, Button, Badge, Modal, Form, Spinner, Row, Col } from 'react-bootstrap';
+import { Container, Card, Button, Badge, Spinner, Row, Col } from 'react-bootstrap';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 
@@ -7,19 +7,16 @@ const InformacionEstudiante = () => {
   const navigate = useNavigate();
   const [noticias, setNoticias] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [showModal, setShowModal] = useState(false);
-  const [saving, setSaving] = useState(false);
-
-  const [formData, setFormData] = useState({
-    titulo: '', categoria: 'Noticia', descripcion_corta: '', contenido_completo: ''
-  });
 
   const fetchNoticias = async () => {
     try {
+      // Filtramos para que SOLO traiga los avisos de estudiantes
       const { data, error } = await supabase
         .from('information')
         .select('*')
-        .order('created_at', { ascending: false });
+        .in('categoria', ['IMPORTANTE', 'Salida', 'Recordatorio']) 
+        .order('fecha_publicacion', { ascending: false });
+        
       if (error) throw error;
       setNoticias(data || []);
     } catch (error) {
@@ -33,23 +30,16 @@ const InformacionEstudiante = () => {
     fetchNoticias();
   }, []);
 
-  const handleChange = (e) => setFormData({ ...formData, [e.target.name]: e.target.value });
-
-  const handleSubirInfo = async (e) => {
-    e.preventDefault();
-    setSaving(true);
-    try {
-      const { error } = await supabase.from('information').insert([formData]);
-      if (error) throw error;
-      
-      alert('Información subida exitosamente.');
-      setShowModal(false);
-      setFormData({ titulo: '', categoria: 'Noticia', descripcion_corta: '', contenido_completo: '' });
-      fetchNoticias();
-    } catch (error) {
-      alert('Error al subir información: ' + error.message);
-    } finally {
-      setSaving(false);
+  const getEstilosAviso = (categoria) => {
+    switch(categoria) {
+      case 'IMPORTANTE': 
+        return { bg: 'danger', border: '#dc3545', icon: '🔴', text: 'light' };
+      case 'Salida': 
+        return { bg: 'warning', border: '#ffc107', icon: '🟡', text: 'dark' };
+      case 'Recordatorio': 
+        return { bg: 'info', border: '#0dcaf0', icon: '🔵', text: 'dark' };
+      default: 
+        return { bg: 'primary', border: 'var(--border-color)', icon: '📰', text: 'light' };
     }
   };
 
@@ -60,66 +50,53 @@ const InformacionEstudiante = () => {
           &larr; Volver al Panel
         </Button>
 
-        <div className="d-flex justify-content-between align-items-center mb-4">
-          <h2 style={{ color: 'var(--color-principal)', fontWeight: '800' }}>Centro de Información</h2>
-          <Button style={{ backgroundColor: 'var(--color-secundario)', border: 'none', fontWeight: 'bold' }} onClick={() => setShowModal(true)}>
-            + Subir Información
-          </Button>
+        <div className="mb-4">
+          <h2 style={{ color: 'var(--color-principal)', fontWeight: '800' }}>Muro de Avisos Internos</h2>
+          <p className="text-muted">Comunicaciones oficiales exclusivas para estudiantes de la Clínica</p>
         </div>
 
         {loading ? (
           <div className="text-center py-5"><Spinner animation="border" style={{ color: 'var(--color-principal)' }} /></div>
         ) : (
           <Row className="g-4">
-            {noticias.length === 0 ? <p className="text-muted">No hay publicaciones recientes.</p> : noticias.map(item => (
-              <Col md={6} key={item.id}>
-                <Card className="border-0 shadow-sm h-100" style={{ borderRadius: '15px' }}>
-                  <Card.Body>
-                    <Badge bg={item.categoria === 'Noticia' ? 'primary' : 'warning'} text="dark" className="mb-2">
-                      {item.categoria}
-                    </Badge>
-                    <h5 className="fw-bold">{item.titulo}</h5>
-                    <p className="text-muted mb-0">{item.descripcion_corta}</p>
-                  </Card.Body>
-                </Card>
-              </Col>
-            ))}
+            {noticias.length === 0 ? (
+              <Col><p className="text-muted text-center py-5 bg-white rounded shadow-sm">No hay avisos recientes de coordinación.</p></Col>
+            ) : noticias.map(item => {
+              const estilos = getEstilosAviso(item.categoria);
+              
+              return (
+                <Col md={6} lg={4} key={item.id}>
+                  <Card className="border-0 shadow-sm h-100" style={{ borderRadius: '15px', borderTop: `4px solid ${estilos.border}` }}>
+                    <Card.Body className="d-flex flex-column">
+                      <div className="d-flex justify-content-between align-items-start mb-3">
+                        <Badge bg={estilos.bg} text={estilos.text} className="px-3 py-2 rounded-pill text-uppercase fw-bold">
+                          {estilos.icon} {item.categoria}
+                        </Badge>
+                        <small className="text-muted fw-bold">
+                          {new Date(item.fecha_publicacion || item.created_at).toLocaleDateString('es-CL')}
+                        </small>
+                      </div>
+                      
+                      <h5 className="fw-bolder text-dark mb-3">{item.titulo}</h5>
+                      
+                      <p className="text-secondary mb-4" style={{ fontSize: '0.95rem' }}>
+                        {item.descripcion_corta}
+                      </p>
+                      
+                      {item.contenido_completo && (
+                        <div className="mt-auto pt-3 border-top">
+                          <p className="small text-muted mb-0" style={{ whiteSpace: 'pre-wrap' }}>
+                            {item.contenido_completo}
+                          </p>
+                        </div>
+                      )}
+                    </Card.Body>
+                  </Card>
+                </Col>
+              );
+            })}
           </Row>
         )}
-
-        {/* Modal Subir Información */}
-        <Modal show={showModal} onHide={() => setShowModal(false)} centered>
-          <Modal.Header closeButton>
-            <Modal.Title className="fw-bold" style={{ color: 'var(--color-principal)' }}>Publicar Información</Modal.Title>
-          </Modal.Header>
-          <Modal.Body>
-            <Form onSubmit={handleSubirInfo}>
-              <Form.Group className="mb-3">
-                <Form.Label className="small fw-bold">Título</Form.Label>
-                <Form.Control name="titulo" value={formData.titulo} onChange={handleChange} required />
-              </Form.Group>
-              <Form.Group className="mb-3">
-                <Form.Label className="small fw-bold">Categoría</Form.Label>
-                <Form.Select name="categoria" value={formData.categoria} onChange={handleChange}>
-                  <option value="Noticia">Noticia / Aviso</option>
-                  <option value="Material Juridico">Material Jurídico</option>
-                  <option value="Guia">Guía de Práctica</option>
-                </Form.Select>
-              </Form.Group>
-              <Form.Group className="mb-3">
-                <Form.Label className="small fw-bold">Descripción Corta</Form.Label>
-                <Form.Control name="descripcion_corta" value={formData.descripcion_corta} onChange={handleChange} required />
-              </Form.Group>
-              <Form.Group className="mb-4">
-                <Form.Label className="small fw-bold">Contenido Completo</Form.Label>
-                <Form.Control as="textarea" rows={4} name="contenido_completo" value={formData.contenido_completo} onChange={handleChange} />
-              </Form.Group>
-              <Button type="submit" className="w-100 fw-bold" style={{ backgroundColor: 'var(--color-principal)', border: 'none' }} disabled={saving}>
-                {saving ? <Spinner size="sm" /> : 'Publicar'}
-              </Button>
-            </Form>
-          </Modal.Body>
-        </Modal>
       </Container>
     </div>
   );
