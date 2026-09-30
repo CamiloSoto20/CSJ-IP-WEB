@@ -7,9 +7,10 @@ const ListaFichas = () => {
   const [fichas, setFichas] = useState([]);
   const [loading, setLoading] = useState(true);
   
-  // Estados para el Modal de Detalles
+  // Estados para modales
   const [fichaSeleccionada, setFichaSeleccionada] = useState(null);
   const [showDetalles, setShowDetalles] = useState(false);
+  const [showTiposFicha, setShowTiposFicha] = useState(false); // Nuevo estado para el cuadro de opciones
   
   const navigate = useNavigate();
 
@@ -19,7 +20,6 @@ const ListaFichas = () => {
 
   const fetchFichas = async () => {
     try {
-      // 1. Ejecutamos las consultas de forma INDEPENDIENTE
       const socialesRes = await supabase.from('social_records').select(`
         id,
         fecha_creacion,
@@ -36,11 +36,9 @@ const ListaFichas = () => {
         perfiles (nombre, rol)
       `);
 
-      // Mostramos los errores en consola si alguna tabla falla, pero NO detenemos la app
       if (socialesRes.error) console.error('Error en fichas sociales:', socialesRes.error.message);
       if (juridicasRes.error) console.error('Error en fichas jurídicas:', juridicasRes.error.message);
 
-      // 2. Formateamos los datos asegurándonos de que si una tabla viene nula, use un arreglo vacío
       const formatearData = (data, tipo, campoFecha) => {
         return (data || []).map(item => ({
           ...item,
@@ -50,7 +48,6 @@ const ListaFichas = () => {
         }));
       };
 
-      // 3. Combinamos solo la data que sí logró llegar exitosamente
       const combinadas = [
         ...formatearData(socialesRes.data, 'Social', 'fecha_creacion'),
         ...formatearData(juridicasRes.data, 'Jurídica', 'created_at')
@@ -91,10 +88,12 @@ const ListaFichas = () => {
           >
             + Ficha Jurídica
           </Button>
+          
+          {/* BOTÓN ACTUALIZADO PARA ABRIR EL CUADRO DE OPCIONES */}
           <Button 
             style={{ backgroundColor: 'var(--color-principal)', border: 'none' }}
             className="fw-bold shadow-sm"
-            onClick={() => navigate('/dashboard/fichas/nueva-social')}
+            onClick={() => setShowTiposFicha(true)}
           >
             + Ficha Social
           </Button>
@@ -182,7 +181,66 @@ const ListaFichas = () => {
         </Card.Body>
       </Card>
 
-      {/* MODAL DE DETALLES RÁPIDOS */}
+      {/* MODAL 1: CUADRO DE SELECCIÓN DE TIPO DE FICHA SOCIAL */}
+      <Modal show={showTiposFicha} onHide={() => setShowTiposFicha(false)} centered>
+        <Modal.Header closeButton>
+          <Modal.Title className="fw-bold fs-5" style={{ color: 'var(--color-principal, #006A38)' }}>
+            Seleccione el tipo de Ficha Social
+          </Modal.Title>
+        </Modal.Header>
+        <Modal.Body className="d-flex flex-column gap-3 p-4">
+          <Button 
+            variant="outline-success" 
+            className="p-3 text-start fw-bold shadow-sm d-flex align-items-center gap-3" 
+            onClick={() => navigate('/dashboard/fichas/nueva-social')}
+            style={{ fontSize: '1.05rem', borderWidth: '2px' }}
+          >
+            <span className="fs-3">📝</span> 
+            <div>
+              <span className="d-block text-dark">Ficha de Atención</span>
+              <span className="small text-muted fw-normal">Registro principal de ingreso y seguimiento</span>
+            </div>
+          </Button>
+
+          <Button 
+            variant="outline-secondary" 
+            className="p-3 text-start fw-bold shadow-sm d-flex align-items-center gap-3 opacity-75" 
+            onClick={() => alert('Módulo en construcción: Pronto podrás registrar Visitas Domiciliarias.')}
+          >
+            <span className="fs-3">🏠</span> 
+            <div>
+              <span className="d-block text-dark">Ficha de Reporte de Visita Domiciliaria</span>
+              <span className="small text-muted fw-normal">Próximamente disponible</span>
+            </div>
+          </Button>
+
+          <Button 
+            variant="outline-secondary" 
+            className="p-3 text-start fw-bold shadow-sm d-flex align-items-center gap-3 opacity-75" 
+            onClick={() => alert('Módulo en construcción: Pronto podrás usar la Ficha de Recopilación.')}
+          >
+            <span className="fs-3">📂</span> 
+            <div>
+              <span className="d-block text-dark">Ficha de Recopilación de Información</span>
+              <span className="small text-muted fw-normal">Próximamente disponible</span>
+            </div>
+          </Button>
+
+          <Button 
+            variant="outline-secondary" 
+            className="p-3 text-start fw-bold shadow-sm d-flex align-items-center gap-3 opacity-75" 
+            onClick={() => alert('Módulo en construcción: Pronto podrás registrar Intervenciones.')}
+          >
+            <span className="fs-3">🤝</span> 
+            <div>
+              <span className="d-block text-dark">Ficha de Intervención</span>
+              <span className="small text-muted fw-normal">Próximamente disponible</span>
+            </div>
+          </Button>
+        </Modal.Body>
+      </Modal>
+
+      {/* MODAL 2: DETALLES RÁPIDOS DE LA FICHA */}
       <Modal show={showDetalles} onHide={() => setShowDetalles(false)} centered>
         <Modal.Header closeButton className={fichaSeleccionada?.tipo === 'Social' ? 'bg-info bg-opacity-25' : 'bg-warning bg-opacity-25'}>
           <Modal.Title className="fw-bold fs-5">
