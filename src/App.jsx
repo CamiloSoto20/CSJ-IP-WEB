@@ -9,7 +9,12 @@ import Citas from './pages/Citas';
 import Charlas from './pages/Charlas';
 import CharaDetalle from './pages/CharlaDetalle';
 import Informacion from './pages/Informacion';
+import ListaFichas from './pages/coordinadora/ListaFichas';
+import NuevaFichaSocial from './pages/coordinadora/fichas/NuevaFichaSocial';
 
+// Nuevas importaciones de Coordinadora
+import Estudiantes from './pages/coordinadora/Estudiantes';
+import PerfilEstudiante from './pages/coordinadora/PerfilEstudiante';
 
 // Módulo Estudiantes
 import PanelEstudiantes from './pages/PanelEstudiantes';
@@ -48,7 +53,13 @@ function App() {
           <Route path="/dashboard/citas" element={<Citas />} />
           <Route path="/dashboard/charlas" element={<Charlas />} />
           <Route path="/dashboard/charlas/:id" element={<CharaDetalle />} />
-          <Route path="/dashboard/informacion" element={<Informacion />} />
+          <Route path="/dashboard/informacion" element={<Informacion />} /> 
+          <Route path="/dashboard/fichas" element={<ListaFichas />} />
+          <Route path="/dashboard/fichas/nueva-social" element={<NuevaFichaSocial />} />
+          
+          {/* Rutas del Directorio de Estudiantes */}
+          <Route path="/dashboard/estudiantes" element={<Estudiantes />} />
+          <Route path="/dashboard/estudiantes/:id" element={<PerfilEstudiante />} />
         </Route>
       </Routes>
     </BrowserRouter>
