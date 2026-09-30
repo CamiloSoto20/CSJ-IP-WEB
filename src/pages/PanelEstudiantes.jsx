@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Row, Col, Button, Badge, Spinner } from 'react-bootstrap';
 import { useNavigate } from 'react-router-dom';
 import Calendar from 'react-calendar';
-import 'react-calendar/dist/Calendar.css'; 
+import 'react-calendar/dist/Calendar.css';
 import { supabase } from '../lib/supabase';
 import './PanelEstudiantes.css';
 import logo from '../assets/LOGO_CSJ.png';
@@ -11,12 +11,12 @@ const PanelEstudiante = () => {
   const [time, setTime] = useState(new Date());
   const [isDarkMode, setIsDarkMode] = useState(false);
   const navigate = useNavigate();
-  
+
   const [loading, setLoading] = useState(true);
   const [perfil, setPerfil] = useState({ nombre: 'Cargando...', carrera: 'Derecho' });
   const [stats, setStats] = useState({ totalFichas: 0, totalCitas: 0, totalCharlas: 0 });
   const [participantes, setParticipantes] = useState([]);
-  
+
   // Estados para el calendario y avisos
   const [fechaSeleccionada, setFechaSeleccionada] = useState(new Date());
   const [misCitas, setMisCitas] = useState([]);
@@ -51,11 +51,11 @@ const PanelEstudiante = () => {
           supabase.from('talks').select('*', { count: 'exact', head: true }),
           supabase.from('perfiles').select('id, nombre, estado, created_at').neq('id', userId).order('created_at', { ascending: false }).limit(5),
           supabase.from('appointments').select('fecha, hora, estado'),
-          supabase.from('information').select('*').order('fecha_publicacion', { ascending: false }).limit(2) // Traemos solo los 2 más recientes
+          supabase.from('information').select('*').in('categoria', ['IMPORTANTE', 'Salida', 'Recordatorio']) // Filtro de exclusividad          .order('fecha_publicacion', { ascending: false })            .limit(2)// Traemos solo los 2 más recientes
         ]);
 
         if (perfilRes.data) setPerfil({ nombre: perfilRes.data.nombre, carrera: 'Estudiante de Derecho' });
-        
+
         setStats({
           totalFichas: fichasRes.count || 0,
           totalCitas: citasRes.count || 0,
@@ -101,13 +101,13 @@ const PanelEstudiante = () => {
   // Helper para estilos dinámicos de avisos
   const getEstiloAvisoDinámico = (categoria) => {
     switch (categoria) {
-      case 'Importante': 
+      case 'Importante':
         return { borderLeft: '4px solid #dc3545', background: 'linear-gradient(135deg, rgba(220, 53, 69, 0.1), rgba(220, 53, 69, 0.03))', icon: '🔴' };
-      case 'Último Minuto': 
+      case 'Último Minuto':
         return { borderLeft: '4px solid #ffc107', background: 'linear-gradient(135deg, rgba(255, 193, 7, 0.1), rgba(255, 193, 7, 0.03))', icon: '🟡' };
-      case 'Recordatorio': 
+      case 'Recordatorio':
         return { borderLeft: '4px solid #0dcaf0', background: 'linear-gradient(135deg, rgba(13, 202, 240, 0.1), rgba(13, 202, 240, 0.03))', icon: '🔵' };
-      default: 
+      default:
         return { borderLeft: '4px solid #0d6efd', background: 'linear-gradient(135deg, rgba(13, 110, 253, 0.1), rgba(13, 110, 253, 0.03))', icon: '📰' };
     }
   };
@@ -212,17 +212,17 @@ const PanelEstudiante = () => {
             <Row className="align-items-start">
               <Col md={7}>
                 <div className="mb-3">
-                  <Calendar 
-                    onChange={setFechaSeleccionada} 
-                    value={fechaSeleccionada} 
+                  <Calendar
+                    onChange={setFechaSeleccionada}
+                    value={fechaSeleccionada}
                     className="w-100 rounded-4 shadow-sm border-0"
                   />
                 </div>
                 <div className="p-3 rounded-4" style={{ backgroundColor: isDarkMode ? 'rgba(120, 190, 32, 0.1)' : 'rgba(120, 190, 32, 0.05)', border: '1px solid var(--color-secundario)' }}>
                   <h6 className="fw-bold mb-1 fs-6">{fechaSeleccionada.toLocaleDateString('es-CL', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</h6>
                   <p className="mb-0 fw-bold" style={{ color: 'var(--color-secundario)' }}>
-                    {citasDelDia.length > 0 
-                      ? `🎯 Tienes ${citasDelDia.length} cita(s) para este día.` 
+                    {citasDelDia.length > 0
+                      ? `🎯 Tienes ${citasDelDia.length} cita(s) para este día.`
                       : '✨ Día libre, no hay citas programadas.'}
                   </p>
                 </div>
@@ -242,13 +242,13 @@ const PanelEstudiante = () => {
         {/* COLUMNA 3: Avisos y Participantes */}
         <Col lg={3} className="d-flex flex-column gap-4 animate-up delay-3">
           <div className="panel-card d-flex flex-column h-100">
-            
+
             {/* Widget Muro de Avisos Dinámico */}
             <div className="d-flex justify-content-between align-items-center mb-3">
               <h5 className="fw-bold mb-0" style={{ color: 'var(--color-principal)' }}>Muro de Avisos</h5>
               <Button variant="link" className="p-0 text-decoration-none small fw-bold" onClick={() => navigate('/panel-estudiante/informacion')}>Ver Todos</Button>
             </div>
-            
+
             <div className="mb-4">
               {avisosRecientes.length === 0 ? (
                 <p className="text-muted small">No hay avisos recientes de coordinación.</p>
