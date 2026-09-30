@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Container, Row, Col, Card, Button, Table, Badge, Modal, Form, Spinner } from 'react-bootstrap';
 import { useNavigate } from 'react-router-dom';
+import { createClient } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
 import * as XLSX from 'xlsx';
 
@@ -19,29 +20,28 @@ const PanelSoporte = () => {
   // Estados de datos
   const [saving, setSaving] = useState(false);
   const [loadingData, setLoadingData] = useState(true);
-  const [estudiantes, setEstudiantes] = useState([]);
+  const [usuarios, setUsuarios] = useState([]); // Cambiado de "estudiantes" a "usuarios"
   const [citasAgendadas, setCitasAgendadas] = useState([]);
   const [perfilSoporte, setPerfilSoporte] = useState({ nombre: 'Cargando...', rol: 'Soporte TI' });
   
   // Estados de selección y formularios
-  const [estudianteSeleccionado, setEstudianteSeleccionado] = useState(null);
+  const [usuarioSeleccionado, setUsuarioSeleccionado] = useState(null);
   const [nuevaPassword, setNuevaPassword] = useState('');
   const [avisoTexto, setAvisoTexto] = useState('');
   
   const [formData, setFormData] = useState({
-    rut: '', nombre: '', correo: '', password: '', carrera: 'Técnico Jurídico'
+    rut: '', nombre: '', correo: '', password: '', rol: 'estudiante', carreraSelect: 'Técnico Jurídico', carreraOtro: ''
   });
 
   useEffect(() => {
     fetchDatosSoporte();
-    fetchEstudiantes();
-    fetchCitasAgendadas(true); // Carga inicial silenciosa para el tiempo real
+    fetchUsuarios();
+    fetchCitasAgendadas(true);
 
-    // Suscripción en Tiempo Real para las Citas
     const citasSubscription = supabase
       .channel('custom-all-channel')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'appointments' }, () => {
-        fetchCitasAgendadas(true); // Recarga silenciosa al detectar cambios
+        fetchCitasAgendadas(true);
       })
       .subscribe();
 
@@ -62,13 +62,18 @@ const PanelSoporte = () => {
     }
   };
 
-  const fetchEstudiantes = async () => {
+  const fetchUsuarios = async () => {
     try {
-      const { data, error } = await supabase.from('perfiles').select('*').eq('rol', 'estudiante').order('created_at', { ascending: false });
+      // Traemos todos los perfiles para gestionar a estudiantes, coordinadoras y supervisores
+      const { data, error } = await supabase
+        .from('perfiles')
+        .select('*')
+        .neq('rol', 'soporte') // Excluimos al propio soporte para no autobloquearse
+        .order('created_at', { ascending: false });
       if (error) throw error;
-      setEstudiantes(data || []);
+      setUsuarios(data || []);
     } catch (error) {
-      console.error("Error al cargar estudiantes:", error.message);
+      console.error("Error al cargar usuarios:", error.message);
     } finally {
       setLoadingData(false);
     }
@@ -82,7 +87,7 @@ const PanelSoporte = () => {
       if (!silencioso) setShowFichasModal(true);
     } catch (error) {
       console.error("Error al cargar citas:", error.message);
-      if (!silencioso) alert("No se pudieron cargar las citas. Verifica la conexión.");
+      if (!silencioso) alert("No se pudieron cargar las citas.");
     }
   };
 
@@ -93,21 +98,50 @@ const PanelSoporte = () => {
 
   const handleChange = (e) => setFormData({ ...formData, [e.target.name]: e.target.value });
 
-  const handleCreateEstudiante = async (e) => {
+  const handleCreateUsuario = async (e) => {
     e.preventDefault();
     if (!formData.correo.endsWith('@csj.cl')) return alert("El correo debe pertenecer al dominio @csj.cl");
     setSaving(true);
+    
     try {
-      const { data: authData, error: authError } = await supabase.auth.signUp({ email: formData.correo, password: formData.password });
+      // TRUCO: Creamos un cliente secundario de Supabase sin persistencia de sesión
+      // Esto evita que la sesión actual de Soporte TI se cierre al crear el nuevo usuario
+      const supabaseSignup = createClient(
+        import.meta.env.VITE_SUPABASE_URL,
+        import.meta.env.VITE_SUPABASE_ANON_KEY,
+        { auth: { persistSession: false, autoRefreshToken: false } }
+      );
+
+      const { data: authData, error: authError } = await supabaseSignup.auth.signUp({ 
+        email: formData.correo, 
+        password: formData.password 
+      });
+      
       if (authError) throw authError;
+
       if (authData.user) {
-        const { error: profileError } = await supabase.from('perfiles').insert([{ id: authData.user.id, rut: formData.rut, nombre: formData.nombre, correo: formData.correo, rol: 'estudiante' }]);
+        // Determinamos la carrera a guardar
+        let carreraFinal = null;
+        if (formData.rol === 'estudiante') {
+          carreraFinal = formData.carreraSelect === 'Otro' ? formData.carreraOtro : formData.carreraSelect;
+        }
+
+        const { error: profileError } = await supabase.from('perfiles').insert([{ 
+          id: authData.user.id, 
+          rut: formData.rut, 
+          nombre: formData.nombre, 
+          correo: formData.correo, 
+          rol: formData.rol,
+          carrera: carreraFinal // RECUERDA CREAR ESTA COLUMNA EN SUPABASE
+        }]);
+        
         if (profileError) throw profileError;
       }
-      alert(`Cuenta creada exitosamente para ${formData.nombre}.`);
-      fetchEstudiantes(); 
+      
+      alert(`Cuenta creada exitosamente para ${formData.nombre} como ${formData.rol}.`);
+      fetchUsuarios(); 
       setShowCreateModal(false);
-      setFormData({ rut: '', nombre: '', correo: '', password: '', carrera: 'Técnico Jurídico' });
+      setFormData({ rut: '', nombre: '', correo: '', password: '', rol: 'estudiante', carreraSelect: 'Técnico Jurídico', carreraOtro: '' });
     } catch (error) {
       alert('Error al crear la cuenta: ' + error.message);
     } finally {
@@ -117,13 +151,20 @@ const PanelSoporte = () => {
 
   const handleDownloadExcel = async () => {
     try {
-      const { data: estudiantesData, error } = await supabase.from('perfiles').select('rut, nombre, correo, estado, created_at').eq('rol', 'estudiante');
+      const { data: usuariosData, error } = await supabase.from('perfiles').select('rut, nombre, correo, rol, estado, created_at');
       if (error) throw error;
-      const datosExcel = estudiantesData.map(est => ({ 'RUT': est.rut || 'S/N', 'Nombre': est.nombre, 'Correo': est.correo, 'Estado': est.estado, 'Fecha Creación': new Date(est.created_at).toLocaleDateString('es-CL') }));
+      const datosExcel = usuariosData.map(usr => ({ 
+        'RUT': usr.rut || 'S/N', 
+        'Nombre': usr.nombre, 
+        'Correo': usr.correo, 
+        'Rol': usr.rol,
+        'Estado': usr.estado, 
+        'Fecha Creación': new Date(usr.created_at).toLocaleDateString('es-CL') 
+      }));
       const worksheet = XLSX.utils.json_to_sheet(datosExcel);
       const workbook = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(workbook, worksheet, "Estudiantes");
-      XLSX.writeFile(workbook, `Reporte_Estudiantes_${new Date().toLocaleDateString('es-CL')}.xlsx`);
+      XLSX.utils.book_append_sheet(workbook, worksheet, "Usuarios");
+      XLSX.writeFile(workbook, `Reporte_Usuarios_${new Date().toLocaleDateString('es-CL')}.xlsx`);
     } catch (error) {
       alert("Hubo un error al generar el reporte.");
     }
@@ -134,7 +175,7 @@ const PanelSoporte = () => {
     try {
       const { error } = await supabase.from('perfiles').update({ estado: nuevoEstado }).eq('id', id);
       if (error) throw error;
-      fetchEstudiantes();
+      fetchUsuarios();
     } catch (error) {
       console.error("Error al cambiar estado:", error);
     }
@@ -142,13 +183,12 @@ const PanelSoporte = () => {
 
   const handleBorrarCache = () => {
     if (window.confirm("¿Forzar recarga y limpiar caché?")) {
-      setEstudiantes([]);
+      setUsuarios([]);
       setLoadingData(true);
-      setTimeout(() => { fetchEstudiantes(); alert("Caché limpiada y datos recargados."); }, 500);
+      setTimeout(() => { fetchUsuarios(); alert("Caché limpiada y datos recargados."); }, 500);
     }
   };
 
-  // Enviar un aviso global a la tabla information (Noticias)
   const handleEnviarAviso = async (e) => {
     e.preventDefault();
     setSaving(true);
@@ -169,12 +209,11 @@ const PanelSoporte = () => {
     }
   };
 
-  // Simulación de Cambio de Contraseña para la Demo
   const handleCambiarPassword = (e) => {
     e.preventDefault();
     setSaving(true);
     setTimeout(() => {
-      alert(`Contraseña actualizada exitosamente para ${estudianteSeleccionado.nombre}. (Simulación UI)`);
+      alert(`Contraseña actualizada exitosamente para ${usuarioSeleccionado?.nombre}. (Simulación UI)`);
       setSaving(false);
       setShowPasswordModal(false);
       setNuevaPassword('');
@@ -200,7 +239,6 @@ const PanelSoporte = () => {
 
       <div className={`soporte-wrapper ${isDarkMode ? 'dark-mode' : ''}`}>
         <Container>
-          {/* Cabecera */}
           <div className="d-flex justify-content-between align-items-center mb-4">
             <div className="d-flex align-items-center gap-3">
               <img src={logoCSJ} alt="Logo" style={{ maxWidth: '60px' }} onError={(e) => e.target.style.display = 'none'} />
@@ -218,7 +256,6 @@ const PanelSoporte = () => {
           </div>
 
           <Row className="g-4">
-            {/* Columna Izquierda: Herramientas */}
             <Col md={4}>
               <Card className="border-0 shadow-sm h-100" style={{ borderRadius: '15px' }}>
                 <Card.Body className="d-flex flex-column gap-3">
@@ -249,13 +286,12 @@ const PanelSoporte = () => {
               </Card>
             </Col>
 
-            {/* Columna Derecha: Gestión de Estudiantes */}
             <Col md={8}>
               <Card className="border-0 shadow-sm h-100" style={{ borderRadius: '15px' }}>
                 <Card.Body>
                   <div className="d-flex justify-content-between align-items-center mb-4">
-                    <h5 className="fw-bold mb-0" style={{ color: 'var(--color-principal)' }}>Accesos (Estudiantes)</h5>
-                    <Button variant="outline-success" size="sm" onClick={() => setShowCreateModal(true)}>+ Nuevo Estudiante</Button>
+                    <h5 className="fw-bold mb-0" style={{ color: 'var(--color-principal)' }}>Control de Accesos (Usuarios)</h5>
+                    <Button variant="outline-success" size="sm" onClick={() => setShowCreateModal(true)}>+ Crear Usuario</Button>
                   </div>
                   
                   {loadingData ? (
@@ -265,29 +301,30 @@ const PanelSoporte = () => {
                       <thead className="text-muted small">
                         <tr>
                           <th>RUT</th>
-                          <th>ESTUDIANTE</th>
+                          <th>USUARIO / ROL</th>
                           <th>ESTADO</th>
                           <th className="text-end">ACCIÓN</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {estudiantes.length === 0 ? (
-                          <tr><td colSpan="4" className="text-center text-muted py-4">No hay estudiantes registrados.</td></tr>
+                        {usuarios.length === 0 ? (
+                          <tr><td colSpan="4" className="text-center text-muted py-4">No hay usuarios registrados.</td></tr>
                         ) : (
-                          estudiantes.map(est => (
-                            <tr key={est.id}>
-                              <td className="text-secondary small">{est.rut || 'S/N'}</td>
-                              <td className="fw-bold">
-                                {est.nombre}
-                                <span className="d-block text-secondary small fw-normal">{est.correo}</span>
+                          usuarios.map(usr => (
+                            <tr key={usr.id}>
+                              <td className="text-secondary small">{usr.rut || 'S/N'}</td>
+                              <td>
+                                <span className="fw-bold">{usr.nombre}</span>
+                                <span className="d-block text-secondary small fw-normal">{usr.correo}</span>
+                                <Badge bg="info" className="mt-1 text-uppercase" style={{ fontSize: '0.65rem' }}>{usr.rol}</Badge>
                               </td>
-                              <td><Badge bg={est.estado === 'Activo' ? 'success' : 'danger'}>{est.estado}</Badge></td>
+                              <td><Badge bg={usr.estado === 'Activo' ? 'success' : 'danger'}>{usr.estado || 'Activo'}</Badge></td>
                               <td className="text-end">
-                                <Button variant="outline-warning" size="sm" className="me-2" onClick={() => { setEstudianteSeleccionado(est); setShowPasswordModal(true); }}>
+                                <Button variant="outline-warning" size="sm" className="me-2" onClick={() => { setUsuarioSeleccionado(usr); setShowPasswordModal(true); }}>
                                   Reset Pass
                                 </Button>
-                                <Button variant={est.estado === 'Activo' ? 'outline-danger' : 'outline-success'} size="sm" onClick={() => handleToggleEstado(est.id, est.estado)}>
-                                  {est.estado === 'Activo' ? 'Bloquear' : 'Activar'}
+                                <Button variant={usr.estado === 'Activo' ? 'outline-danger' : 'outline-success'} size="sm" onClick={() => handleToggleEstado(usr.id, usr.estado)}>
+                                  {usr.estado === 'Activo' ? 'Bloquear' : 'Activar'}
                                 </Button>
                               </td>
                             </tr>
@@ -301,26 +338,63 @@ const PanelSoporte = () => {
             </Col>
           </Row>
 
-          {/* Modal: Crear Estudiante */}
+          {/* Modal: Crear Usuario */}
           <Modal show={showCreateModal} onHide={() => setShowCreateModal(false)} centered>
-            <Modal.Header closeButton><Modal.Title className="fs-5 fw-bold" style={{ color: 'var(--color-principal)' }}>Crear Estudiante</Modal.Title></Modal.Header>
+            <Modal.Header closeButton><Modal.Title className="fs-5 fw-bold" style={{ color: 'var(--color-principal)' }}>Crear Nuevo Usuario</Modal.Title></Modal.Header>
             <Modal.Body>
-              <Form onSubmit={handleCreateEstudiante}>
+              <Form onSubmit={handleCreateUsuario}>
+                
+                <Form.Group className="mb-3">
+                  <Form.Label className="small fw-bold">Rol del Usuario</Form.Label>
+                  <Form.Select name="rol" value={formData.rol} onChange={handleChange}>
+                    <option value="estudiante">Estudiante</option>
+                    <option value="coordinadora">Coordinadora</option>
+                    <option value="supervisor">Supervisor</option>
+                  </Form.Select>
+                </Form.Group>
+
                 <Row className="mb-3">
                   <Col md={4}><Form.Label className="small fw-bold">RUT</Form.Label><Form.Control name="rut" value={formData.rut} onChange={handleChange} required /></Col>
                   <Col md={8}><Form.Label className="small fw-bold">Nombre</Form.Label><Form.Control name="nombre" value={formData.nombre} onChange={handleChange} required /></Col>
                 </Row>
-                <Form.Group className="mb-3"><Form.Label className="small fw-bold">Correo @csj.cl</Form.Label><Form.Control type="email" name="correo" value={formData.correo} onChange={handleChange} required /></Form.Group>
+                
                 <Form.Group className="mb-3">
-                  <Form.Label className="small fw-bold">Carrera</Form.Label>
-                  <Form.Select name="carrera" value={formData.carrera} onChange={handleChange}>
-                    <option value="Técnico Jurídico">Técnico Jurídico</option>
-                    <option value="Servicio Social">Servicio Social</option>
-                    <option value="Técnico Trabajo Social">Técnico Trabajo Social</option>
-                  </Form.Select>
+                  <Form.Label className="small fw-bold">Correo @csj.cl</Form.Label>
+                  <Form.Control type="email" name="correo" value={formData.correo} onChange={handleChange} required />
                 </Form.Group>
-                <Form.Group className="mb-4"><Form.Label className="small fw-bold">Contraseña</Form.Label><Form.Control type="password" name="password" value={formData.password} onChange={handleChange} required minLength={6} /></Form.Group>
-                <Button type="submit" className="w-100 fw-bold" style={{ backgroundColor: 'var(--color-principal)', border: 'none' }} disabled={saving}>{saving ? <Spinner size="sm"/> : 'Registrar'}</Button>
+
+                {/* Mostrar opciones de carrera solo si el rol es estudiante */}
+                {formData.rol === 'estudiante' && (
+                  <Form.Group className="mb-3">
+                    <Form.Label className="small fw-bold">Carrera</Form.Label>
+                    <Form.Select name="carreraSelect" value={formData.carreraSelect} onChange={handleChange}>
+                      <option value="Técnico Jurídico">Técnico Jurídico</option>
+                      <option value="Servicio Social">Servicio Social</option>
+                      <option value="Técnico Trabajo Social">Técnico Trabajo Social</option>
+                      <option value="Otro">Otro...</option>
+                    </Form.Select>
+                    
+                    {formData.carreraSelect === 'Otro' && (
+                      <Form.Control 
+                        className="mt-2" 
+                        name="carreraOtro" 
+                        placeholder="Especifique la carrera" 
+                        value={formData.carreraOtro} 
+                        onChange={handleChange} 
+                        required 
+                      />
+                    )}
+                  </Form.Group>
+                )}
+
+                <Form.Group className="mb-4">
+                  <Form.Label className="small fw-bold">Contraseña Temporal</Form.Label>
+                  <Form.Control type="password" name="password" value={formData.password} onChange={handleChange} required minLength={6} />
+                </Form.Group>
+                
+                <Button type="submit" className="w-100 fw-bold" style={{ backgroundColor: 'var(--color-principal)', border: 'none' }} disabled={saving}>
+                  {saving ? <Spinner size="sm"/> : 'Registrar Cuenta'}
+                </Button>
               </Form>
             </Modal.Body>
           </Modal>
@@ -330,7 +404,7 @@ const PanelSoporte = () => {
             <Modal.Header closeButton><Modal.Title className="fs-5 fw-bold">Resetear Contraseña</Modal.Title></Modal.Header>
             <Modal.Body>
               <Form onSubmit={handleCambiarPassword}>
-                <p className="text-muted small mb-4">Actualizar credenciales de acceso para <strong>{estudianteSeleccionado?.nombre}</strong>.</p>
+                <p className="text-muted small mb-4">Actualizar credenciales de acceso para <strong>{usuarioSeleccionado?.nombre}</strong>.</p>
                 <Form.Group className="mb-4">
                   <Form.Label className="small fw-bold">Nueva Contraseña Temporal</Form.Label>
                   <Form.Control type="text" value={nuevaPassword} onChange={(e) => setNuevaPassword(e.target.value)} required minLength={6} />
