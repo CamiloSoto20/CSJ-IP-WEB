@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Table, Button, Badge, Spinner, Modal, Form, Card } from 'react-bootstrap';
+import { Table, Button, Badge, Spinner, Modal, Form, Card, Row, Col } from 'react-bootstrap';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 
@@ -7,14 +7,17 @@ const Informacion = () => {
   const { user } = useAuth();
   const [publicaciones, setPublicaciones] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [showModal, setShowModal] = useState(false);
+  
+  // Estados para los dos modales distintos
+  const [showModalNoticia, setShowModalNoticia] = useState(false);
+  const [showModalAviso, setShowModalAviso] = useState(false);
   const [saving, setSaving] = useState(false);
   
   const [formData, setFormData] = useState({ 
     titulo: '', 
     descripcion_corta: '', 
     contenido_completo: '', 
-    categoria: 'Aviso (Estudiantes)' // Por defecto en aviso
+    categoria: '' 
   });
 
   const fetchPublicaciones = async () => {
@@ -38,11 +41,23 @@ const Informacion = () => {
   }, []);
 
   const handleClose = () => {
-    setShowModal(false);
-    setFormData({ titulo: '', descripcion_corta: '', contenido_completo: '', categoria: 'Aviso (Estudiantes)' });
+    setShowModalNoticia(false);
+    setShowModalAviso(false);
+    setFormData({ titulo: '', descripcion_corta: '', contenido_completo: '', categoria: '' });
   };
 
-  const handleChange = (e) => setFormData({ ...formData, [e.target.name]: e.target.value });
+  const handleChange = (e) => {
+    setFormData({ ...formData, [e.target.name]: e.target.value });
+  };
+
+  // Manejador especial para forzar mayúsculas en el título de los avisos
+  const handleChangeAviso = (e) => {
+    const { name, value } = e.target;
+    setFormData({ 
+      ...formData, 
+      [name]: name === 'titulo' ? value.toUpperCase() : value 
+    });
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -50,7 +65,7 @@ const Informacion = () => {
     try {
       const { error } = await supabase.from('information').insert([{
         ...formData,
-        author_id: user?.id || null // Previene error si auth demora en cargar
+        author_id: user?.id || null 
       }]);
 
       if (error) throw error;
@@ -66,10 +81,25 @@ const Informacion = () => {
     }
   };
 
+  const abrirModalNoticia = () => {
+    setFormData({ ...formData, categoria: 'Noticia' });
+    setShowModalNoticia(true);
+  };
+
+  const abrirModalAviso = () => {
+    setFormData({ ...formData, categoria: 'IMPORTANTE' });
+    setShowModalAviso(true);
+  };
+
   const getCategoriaBadge = (categoria) => {
-    if (categoria?.includes('Aviso')) return 'danger';
-    if (categoria === 'Noticia') return 'info';
-    return 'primary';
+    switch(categoria) {
+      case 'IMPORTANTE': return 'danger';
+      case 'Salida': return 'warning';
+      case 'Recordatorio': return 'info';
+      case 'Noticia': return 'primary';
+      case 'Artículo Legal': return 'secondary';
+      default: return 'dark';
+    }
   };
 
   return (
@@ -77,15 +107,24 @@ const Informacion = () => {
       <div className="d-flex justify-content-between align-items-center mb-4">
         <div>
           <h3 className="fw-bold mb-1" style={{ color: 'var(--color-principal, #006A38)' }}>Centro de Comunicaciones</h3>
-          <p className="text-muted mb-0">Gestión de avisos, noticias y artículos</p>
+          <p className="text-muted mb-0">Gestión separada de noticias públicas y avisos internos</p>
         </div>
-        <Button 
-          style={{ backgroundColor: 'var(--color-principal)', border: 'none' }} 
-          onClick={() => setShowModal(true)}
-          className="d-flex align-items-center gap-2"
-        >
-          <span>+</span> Nueva Publicación
-        </Button>
+        <div className="d-flex gap-2">
+          <Button 
+            variant="outline-primary" 
+            onClick={abrirModalNoticia}
+            className="d-flex align-items-center gap-2 fw-bold"
+          >
+            📰 Subir Noticia (Pública)
+          </Button>
+          <Button 
+            style={{ backgroundColor: '#dc3545', border: 'none' }} 
+            onClick={abrirModalAviso}
+            className="d-flex align-items-center gap-2 fw-bold text-white shadow-sm"
+          >
+            ⚠️ Enviar Aviso (Estudiantes)
+          </Button>
+        </div>
       </div>
 
       <Card className="border-0 shadow-sm">
@@ -93,7 +132,6 @@ const Informacion = () => {
           {loading ? (
             <div className="text-center py-5">
               <Spinner animation="border" style={{ color: 'var(--color-principal)' }} />
-              <p className="text-muted mt-2 mb-0">Cargando publicaciones...</p>
             </div>
           ) : (
             <Table hover responsive className="align-middle mb-0">
@@ -101,7 +139,7 @@ const Informacion = () => {
                 <tr>
                   <th className="text-muted border-0 py-3 px-4">FECHA</th>
                   <th className="text-muted border-0 py-3">TÍTULO / RESUMEN</th>
-                  <th className="text-muted border-0 py-3">CATEGORÍA</th>
+                  <th className="text-muted border-0 py-3">TIPO</th>
                   <th className="text-muted border-0 py-3 px-4 text-end">ESTADO</th>
                 </tr>
               </thead>
@@ -112,13 +150,16 @@ const Informacion = () => {
                       {new Date(pub.fecha_publicacion).toLocaleDateString('es-CL')}
                     </td>
                     <td>
-                      <span className="fw-bold d-block text-dark">{pub.titulo}</span>
+                      {/* Si es un aviso interno (Importante, Salida, Recordatorio), lo mostramos en negrita */}
+                      <span className={`d-block text-dark ${['IMPORTANTE', 'Salida', 'Recordatorio'].includes(pub.categoria) ? 'fw-bolder' : 'fw-bold'}`}>
+                        {pub.titulo}
+                      </span>
                       <span className="text-muted small text-truncate d-inline-block" style={{ maxWidth: '300px' }}>
                         {pub.descripcion_corta}
                       </span>
                     </td>
                     <td>
-                      <Badge bg={getCategoriaBadge(pub.categoria)} className="px-2 py-1">
+                      <Badge bg={getCategoriaBadge(pub.categoria)} text={['Salida', 'Recordatorio'].includes(pub.categoria) ? 'dark' : 'light'} className="px-2 py-1 text-uppercase">
                         {pub.categoria || 'General'}
                       </Badge>
                     </td>
@@ -132,33 +173,88 @@ const Informacion = () => {
               </tbody>
             </Table>
           )}
-          {!loading && publicaciones.length === 0 && (
-            <div className="text-center text-muted py-5">
-              No hay publicaciones registradas.
-            </div>
-          )}
         </Card.Body>
       </Card>
 
-      <Modal show={showModal} onHide={handleClose} size="lg" centered>
-        <Modal.Header closeButton>
-          <Modal.Title className="fw-bold" style={{ color: 'var(--color-principal, #006A38)' }}>Crear Nueva Publicación</Modal.Title>
+      {/* =========================================
+          MODAL 1: AVISOS (SOLO ESTUDIANTES)
+      ========================================= */}
+      <Modal show={showModalAviso} onHide={handleClose} size="lg" centered>
+        <Modal.Header closeButton className="bg-danger text-white">
+          <Modal.Title className="fw-bold">⚠️ Enviar Aviso a Estudiantes</Modal.Title>
         </Modal.Header>
         <Modal.Body>
           <Form onSubmit={handleSubmit}>
             <Row className="mb-3">
               <Col md={8}>
                 <Form.Group>
-                  <Form.Label className="small fw-bold">Título del Anuncio</Form.Label>
-                  <Form.Control name="titulo" value={formData.titulo} onChange={handleChange} required placeholder="Ej: Suspensión de actividades..." />
+                  <Form.Label className="small fw-bold text-danger">Título del Aviso (Se forzará a mayúsculas)</Form.Label>
+                  <Form.Control 
+                    name="titulo" 
+                    value={formData.titulo} 
+                    onChange={handleChangeAviso} 
+                    required 
+                    placeholder="EJ: SUSPENSIÓN DE ACTIVIDADES" 
+                    className="fw-bold"
+                  />
                 </Form.Group>
               </Col>
               <Col md={4}>
                 <Form.Group>
-                  <Form.Label className="small fw-bold">Tipo de Publicación</Form.Label>
+                  <Form.Label className="small fw-bold">Tipo de Aviso</Form.Label>
+                  <Form.Select name="categoria" value={formData.categoria} onChange={handleChangeAviso} required className="fw-bold text-dark">
+                    <option value="IMPORTANTE">🔴 IMPORTANTE</option>
+                    <option value="Salida">🟡 Salida</option>
+                    <option value="Recordatorio">🔵 Recordatorio</option>
+                  </Form.Select>
+                </Form.Group>
+              </Col>
+            </Row>
+
+            <Form.Group className="mb-4">
+              <Form.Label className="small fw-bold">Descripción del Aviso</Form.Label>
+              <Form.Control 
+                as="textarea" 
+                rows={4} 
+                name="descripcion_corta" 
+                value={formData.descripcion_corta} 
+                onChange={handleChangeAviso} 
+                placeholder="Escribe aquí las instrucciones o el comunicado..." 
+                required 
+              />
+            </Form.Group>
+            
+            <div className="d-flex justify-content-end gap-2">
+              <Button variant="outline-secondary" onClick={handleClose} disabled={saving}>Cancelar</Button>
+              <Button type="submit" variant="danger" className="fw-bold" disabled={saving}>
+                {saving ? <Spinner animation="border" size="sm" /> : 'Publicar Aviso Interno'}
+              </Button>
+            </div>
+          </Form>
+        </Modal.Body>
+      </Modal>
+
+      {/* =========================================
+          MODAL 2: NOTICIAS (PÁGINA PRINCIPAL)
+      ========================================= */}
+      <Modal show={showModalNoticia} onHide={handleClose} size="lg" centered>
+        <Modal.Header closeButton>
+          <Modal.Title className="fw-bold" style={{ color: 'var(--color-principal, #006A38)' }}>Crear Noticia Pública</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          <Form onSubmit={handleSubmit}>
+            <Row className="mb-3">
+              <Col md={8}>
+                <Form.Group>
+                  <Form.Label className="small fw-bold">Título de la Noticia</Form.Label>
+                  <Form.Control name="titulo" value={formData.titulo} onChange={handleChange} required placeholder="Ej: Nuevo convenio firmado..." />
+                </Form.Group>
+              </Col>
+              <Col md={4}>
+                <Form.Group>
+                  <Form.Label className="small fw-bold">Categoría</Form.Label>
                   <Form.Select name="categoria" value={formData.categoria} onChange={handleChange} required>
-                    <option value="Aviso (Estudiantes)">⚠️ Aviso (Estudiantes)</option>
-                    <option value="Noticia">📰 Noticia General</option>
+                    <option value="Noticia">📰 Noticia</option>
                     <option value="Artículo Legal">⚖️ Artículo Legal</option>
                   </Form.Select>
                 </Form.Group>
@@ -166,29 +262,27 @@ const Informacion = () => {
             </Row>
 
             <Form.Group className="mb-3">
-              <Form.Label className="small fw-bold">Resumen / Subtítulo</Form.Label>
-              <Form.Control as="textarea" rows={2} name="descripcion_corta" value={formData.descripcion_corta} onChange={handleChange} placeholder="Texto breve visible en las tarjetas principales..." required />
+              <Form.Label className="small fw-bold">Resumen Corto</Form.Label>
+              <Form.Control as="textarea" rows={2} name="descripcion_corta" value={formData.descripcion_corta} onChange={handleChange} placeholder="Texto introductorio..." required />
             </Form.Group>
 
             <Form.Group className="mb-4">
               <Form.Label className="small fw-bold">Contenido Completo</Form.Label>
-              <Form.Control as="textarea" rows={6} name="contenido_completo" value={formData.contenido_completo} onChange={handleChange} placeholder="Detalles de la publicación..." required />
+              <Form.Control as="textarea" rows={6} name="contenido_completo" value={formData.contenido_completo} onChange={handleChange} placeholder="Desarrollo de la noticia..." />
             </Form.Group>
             
             <div className="d-flex justify-content-end gap-2">
               <Button variant="outline-secondary" onClick={handleClose} disabled={saving}>Cancelar</Button>
               <Button type="submit" style={{ backgroundColor: 'var(--color-principal)', border: 'none' }} disabled={saving}>
-                {saving ? <Spinner animation="border" size="sm" /> : 'Publicar Inmediatamente'}
+                {saving ? <Spinner animation="border" size="sm" /> : 'Publicar Noticia'}
               </Button>
             </div>
           </Form>
         </Modal.Body>
       </Modal>
+
     </div>
   );
 };
-
-// Importaciones faltantes añadidas al final por limpieza visual (Col, Row de react-bootstrap)
-import { Col, Row } from 'react-bootstrap';
 
 export default Informacion;
