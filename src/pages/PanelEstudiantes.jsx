@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Row, Col, Button, Badge, Spinner } from 'react-bootstrap';
 import { useNavigate } from 'react-router-dom';
 import Calendar from 'react-calendar';
-import 'react-calendar/dist/Calendar.css'; // Estilos base del calendario
+import 'react-calendar/dist/Calendar.css'; 
 import { supabase } from '../lib/supabase';
 import './PanelEstudiantes.css';
 import logo from '../assets/LOGO_CSJ.png';
@@ -17,9 +17,10 @@ const PanelEstudiante = () => {
   const [stats, setStats] = useState({ totalFichas: 0, totalCitas: 0, totalCharlas: 0 });
   const [participantes, setParticipantes] = useState([]);
   
-  // Estados para el nuevo calendario interactivo
+  // Estados para el calendario y avisos
   const [fechaSeleccionada, setFechaSeleccionada] = useState(new Date());
   const [misCitas, setMisCitas] = useState([]);
+  const [avisosRecientes, setAvisosRecientes] = useState([]);
 
   // Reloj en tiempo real
   useEffect(() => {
@@ -35,21 +36,22 @@ const PanelEstudiante = () => {
         if (authError || !authData?.user) throw authError;
         const userId = authData.user.id;
 
-        // Promise.all ejecuta todas las consultas al mismo tiempo, reduciendo el tiempo de carga un 80%
         const [
           perfilRes,
           fichasRes,
           citasRes,
           charlasRes,
           usuariosRes,
-          misCitasRes
+          misCitasRes,
+          avisosRes // Nueva consulta agregada
         ] = await Promise.all([
           supabase.from('perfiles').select('nombre, rol').eq('id', userId).single(),
           supabase.from('legal_records').select('*', { count: 'exact', head: true }),
           supabase.from('appointments').select('*', { count: 'exact', head: true }),
           supabase.from('talks').select('*', { count: 'exact', head: true }),
           supabase.from('perfiles').select('id, nombre, estado, created_at').neq('id', userId).order('created_at', { ascending: false }).limit(5),
-          supabase.from('appointments').select('fecha, hora, estado') // Cargamos las citas para el calendario
+          supabase.from('appointments').select('fecha, hora, estado'),
+          supabase.from('information').select('*').order('fecha_publicacion', { ascending: false }).limit(2) // Traemos solo los 2 más recientes
         ]);
 
         if (perfilRes.data) setPerfil({ nombre: perfilRes.data.nombre, carrera: 'Estudiante de Derecho' });
@@ -62,6 +64,7 @@ const PanelEstudiante = () => {
 
         if (usuariosRes.data) setParticipantes(usuariosRes.data);
         if (misCitasRes.data) setMisCitas(misCitasRes.data);
+        if (avisosRes.data) setAvisosRecientes(avisosRes.data);
 
       } catch (error) {
         console.error("Error al cargar datos:", error.message);
@@ -91,9 +94,23 @@ const PanelEstudiante = () => {
     return fecha.toLocaleDateString('es-CL', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
   };
 
-  // Filtrar citas según la fecha cliqueada en el calendario
+  // Filtrar citas
   const fechaFormateada = fechaSeleccionada.toISOString().split('T')[0];
   const citasDelDia = misCitas.filter(cita => cita.fecha === fechaFormateada);
+
+  // Helper para estilos dinámicos de avisos
+  const getEstiloAvisoDinámico = (categoria) => {
+    switch (categoria) {
+      case 'Importante': 
+        return { borderLeft: '4px solid #dc3545', background: 'linear-gradient(135deg, rgba(220, 53, 69, 0.1), rgba(220, 53, 69, 0.03))', icon: '🔴' };
+      case 'Último Minuto': 
+        return { borderLeft: '4px solid #ffc107', background: 'linear-gradient(135deg, rgba(255, 193, 7, 0.1), rgba(255, 193, 7, 0.03))', icon: '🟡' };
+      case 'Recordatorio': 
+        return { borderLeft: '4px solid #0dcaf0', background: 'linear-gradient(135deg, rgba(13, 202, 240, 0.1), rgba(13, 202, 240, 0.03))', icon: '🔵' };
+      default: 
+        return { borderLeft: '4px solid #0d6efd', background: 'linear-gradient(135deg, rgba(13, 110, 253, 0.1), rgba(13, 110, 253, 0.03))', icon: '📰' };
+    }
+  };
 
   if (loading) {
     return (
@@ -115,9 +132,13 @@ const PanelEstudiante = () => {
         >
           {isDarkMode ? '☀️' : '🌙'}
         </Button>
-        <div className="position-relative" style={{ cursor: 'pointer', fontSize: '1.8rem' }}>
+        <div className="position-relative" style={{ cursor: 'pointer', fontSize: '1.8rem' }} onClick={() => navigate('/panel-estudiante/informacion')}>
           🔔
-          <Badge bg="danger" className="position-absolute top-0 start-100 translate-middle rounded-pill border border-2 border-white" style={{ fontSize: '0.65rem' }}>3</Badge>
+          {avisosRecientes.length > 0 && (
+            <Badge bg="danger" className="position-absolute top-0 start-100 translate-middle rounded-pill border border-2 border-white" style={{ fontSize: '0.65rem' }}>
+              {avisosRecientes.length}
+            </Badge>
+          )}
         </div>
       </div>
 
@@ -186,7 +207,6 @@ const PanelEstudiante = () => {
             </Row>
           </div>
 
-          {/* Calendario y Reportes */}
           <div className="panel-card mt-auto">
             <h5 className="fw-bold mb-3" style={{ color: 'var(--color-principal)' }}>Resumen del Día</h5>
             <Row className="align-items-start">
@@ -222,13 +242,34 @@ const PanelEstudiante = () => {
         {/* COLUMNA 3: Avisos y Participantes */}
         <Col lg={3} className="d-flex flex-column gap-4 animate-up delay-3">
           <div className="panel-card d-flex flex-column h-100">
-            <h5 className="fw-bold mb-4" style={{ color: 'var(--color-principal)' }}>Muro de Avisos</h5>
-            <div className="avisos-box shadow-sm">
-              <h6 className="fw-bold mb-2 d-flex align-items-center gap-2"><span>⚠️</span> Reunión de equipo</h6>
-              <p className="small mb-0 text-dark fw-semibold">Viernes a las 15:00 hrs. Asistencia obligatoria para revisión de casos.</p>
+            
+            {/* Widget Muro de Avisos Dinámico */}
+            <div className="d-flex justify-content-between align-items-center mb-3">
+              <h5 className="fw-bold mb-0" style={{ color: 'var(--color-principal)' }}>Muro de Avisos</h5>
+              <Button variant="link" className="p-0 text-decoration-none small fw-bold" onClick={() => navigate('/panel-estudiante/informacion')}>Ver Todos</Button>
+            </div>
+            
+            <div className="mb-4">
+              {avisosRecientes.length === 0 ? (
+                <p className="text-muted small">No hay avisos recientes de coordinación.</p>
+              ) : (
+                avisosRecientes.map((aviso) => {
+                  const estilos = getEstiloAvisoDinámico(aviso.categoria);
+                  return (
+                    <div key={aviso.id} className="shadow-sm mb-3" style={{ padding: '1rem', borderRadius: '12px', borderLeft: estilos.borderLeft, background: estilos.background }}>
+                      <h6 className="fw-bold mb-1 d-flex align-items-start gap-2" style={{ fontSize: '0.9rem' }}>
+                        <span>{estilos.icon}</span> {aviso.titulo}
+                      </h6>
+                      <p className="small mb-0 mt-2" style={{ color: 'var(--text-primary)', lineHeight: '1.4' }}>
+                        {aviso.descripcion_corta}
+                      </p>
+                    </div>
+                  );
+                })
+              )}
             </div>
 
-            <h5 className="fw-bold mb-3 mt-3" style={{ color: 'var(--color-principal)' }}>Usuarios del Sistema</h5>
+            <h5 className="fw-bold mb-3 mt-auto" style={{ color: 'var(--color-principal)' }}>Usuarios del Sistema</h5>
             <div className="participantes-list flex-grow-1">
               {participantes.length === 0 ? (
                 <p className="text-muted small text-center mt-4">No hay otros usuarios registrados aún.</p>
