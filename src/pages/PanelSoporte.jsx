@@ -17,15 +17,17 @@ const PanelSoporte = () => {
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [showAvisoModal, setShowAvisoModal] = useState(false);
   const [showInboxModal, setShowInboxModal] = useState(false);
-  const [showPasswordRequestsModal, setShowPasswordRequestsModal] = useState(false); // NUEVO MODAL
+  const [showPasswordRequestsModal, setShowPasswordRequestsModal] = useState(false);
   
   // Estados de datos
   const [saving, setSaving] = useState(false);
   const [loadingData, setLoadingData] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  
   const [usuarios, setUsuarios] = useState([]);
   const [citasAgendadas, setCitasAgendadas] = useState([]);
   const [mensajesSoporte, setMensajesSoporte] = useState([]);
-  const [solicitudesPassword, setSolicitudesPassword] = useState([]); // NUEVO ESTADO
+  const [solicitudesPassword, setSolicitudesPassword] = useState([]); 
   const [perfilSoporte, setPerfilSoporte] = useState({ nombre: 'Cargando...', rol: 'Soporte TI' });
   
   // Estados de selección y formularios
@@ -42,7 +44,7 @@ const PanelSoporte = () => {
     fetchUsuarios();
     fetchCitasAgendadas(true);
     fetchMensajesSoporte();
-    fetchSolicitudesPassword(); // NUEVA LLAMADA
+    fetchSolicitudesPassword();
 
     // Suscripciones en tiempo real
     const channels = supabase.channel('soporte-channels')
@@ -53,7 +55,7 @@ const PanelSoporte = () => {
         fetchMensajesSoporte();
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'solicitudes_password' }, () => {
-        fetchSolicitudesPassword(); // NUEVA SUSCRIPCIÓN
+        fetchSolicitudesPassword(); 
       })
       .subscribe();
 
@@ -92,7 +94,8 @@ const PanelSoporte = () => {
 
   const fetchCitasAgendadas = async (silencioso = false) => {
     try {
-      const { data, error } = await supabase.from('appointments').select('*').order('fecha', { ascending: true });
+      // CORRECCIÓN: Se cambió 'fecha' por 'fecha_cita'
+      const { data, error } = await supabase.from('appointments').select('*').order('fecha_cita', { ascending: true });
       if (error) throw error;
       setCitasAgendadas(data || []);
     } catch (error) {
@@ -114,6 +117,7 @@ const PanelSoporte = () => {
   };
 
   const fetchSolicitudesPassword = async () => {
+    setRefreshing(true);
     try {
       const { data, error } = await supabase
         .from('solicitudes_password')
@@ -123,6 +127,8 @@ const PanelSoporte = () => {
       setSolicitudesPassword(data || []);
     } catch (error) {
       console.error("Error al cargar solicitudes de clave:", error.message);
+    } finally {
+      setRefreshing(false);
     }
   };
 
@@ -323,7 +329,6 @@ const PanelSoporte = () => {
                   <div>
                     <h5 className="fw-bold mb-3" style={{ color: 'var(--color-principal)' }}>Atención al Usuario</h5>
                     
-                    {/* Tickets de Soporte */}
                     <Button 
                       variant="outline-danger" 
                       className="w-100 fw-bold d-flex align-items-center justify-content-between py-2 mb-2" 
@@ -336,7 +341,6 @@ const PanelSoporte = () => {
                       {mensajesPendientes.length > 0 && <Badge bg="danger" className="rounded-pill">{mensajesPendientes.length}</Badge>}
                     </Button>
 
-                    {/* Solicitudes de Contraseña */}
                     <Button 
                       variant="outline-warning" 
                       className="w-100 fw-bold d-flex align-items-center justify-content-between py-2 mb-2" 
@@ -478,10 +482,18 @@ const PanelSoporte = () => {
               <Modal.Title className="fw-bold text-warning">🔑 Solicitudes de Recuperación</Modal.Title>
             </Modal.Header>
             <Modal.Body style={{ maxHeight: '60vh', overflowY: 'auto' }}>
+              
+              <div className="d-flex justify-content-between align-items-center mb-3">
+                <p className="text-muted small mb-0">Listado en tiempo real de peticiones anónimas</p>
+                <Button variant="outline-secondary" size="sm" onClick={fetchSolicitudesPassword} disabled={refreshing}>
+                  {refreshing ? <Spinner size="sm" /> : '🔄 Actualizar Manualmente'}
+                </Button>
+              </div>
+
               {solicitudesPassword.length === 0 ? (
                 <div className="text-center py-5">
                   <h5 className="text-muted fw-bold">Bandeja Vacía</h5>
-                  <p className="text-muted small">No hay solicitudes de recuperación de contraseña.</p>
+                  <p className="text-muted small">No hay solicitudes de recuperación de contraseña pendientes.</p>
                 </div>
               ) : (
                 <div className="d-flex flex-column gap-3">
@@ -541,6 +553,7 @@ const PanelSoporte = () => {
                   <Form.Control type="email" name="correo" value={formData.correo} onChange={handleChange} required />
                 </Form.Group>
 
+                {/* Mostrar opciones de carrera solo si el rol es estudiante */}
                 {formData.rol === 'estudiante' && (
                   <Form.Group className="mb-3">
                     <Form.Label className="small fw-bold">Carrera</Form.Label>
@@ -552,7 +565,14 @@ const PanelSoporte = () => {
                     </Form.Select>
                     
                     {formData.carreraSelect === 'Otro' && (
-                      <Form.Control className="mt-2" name="carreraOtro" placeholder="Especifique la carrera" value={formData.carreraOtro} onChange={handleChange} required />
+                      <Form.Control 
+                        className="mt-2" 
+                        name="carreraOtro" 
+                        placeholder="Especifique la carrera" 
+                        value={formData.carreraOtro} 
+                        onChange={handleChange} 
+                        required 
+                      />
                     )}
                   </Form.Group>
                 )}
@@ -614,7 +634,8 @@ const PanelSoporte = () => {
                   <tbody>
                     {citasAgendadas.map((cita) => (
                       <tr key={cita.id}>
-                        <td>{cita.fecha}</td>
+                        {/* CORRECCIÓN: Se cambió cita.fecha por cita.fecha_cita */}
+                        <td>{cita.fecha_cita}</td>
                         <td>{cita.hora}</td>
                         <td>{cita.motivo || 'N/A'}</td>
                         <td><Badge bg={cita.estado === 'Confirmada' ? 'success' : cita.estado === 'Pendiente' ? 'warning' : 'secondary'}>{cita.estado}</Badge></td>
