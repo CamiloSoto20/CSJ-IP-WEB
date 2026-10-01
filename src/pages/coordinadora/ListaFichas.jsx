@@ -6,12 +6,12 @@ import { supabase } from '../../lib/supabase';
 const ListaFichas = () => {
   const [fichas, setFichas] = useState([]);
   const [loading, setLoading] = useState(true);
-  
+
   // Estados para modales
   const [fichaSeleccionada, setFichaSeleccionada] = useState(null);
   const [showDetalles, setShowDetalles] = useState(false);
   const [showTiposFicha, setShowTiposFicha] = useState(false);
-  
+
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -38,7 +38,7 @@ const ListaFichas = () => {
           ...item,
           area,
           tipoEspecifico,
-          fecha_registro: item[campoFecha], 
+          fecha_registro: item[campoFecha],
           timestamp: new Date(item[campoFecha] || 0).getTime()
         }));
       };
@@ -72,7 +72,7 @@ const ListaFichas = () => {
 
   const renderEstado = (ficha) => {
     if (ficha.tipoEspecifico === 'Recopilación Info.' || ficha.tipoEspecifico === 'Visita Domiciliaria') {
-      return <Badge bg="success" className="px-3 py-2">Registrada</Badge>; 
+      return <Badge bg="success" className="px-3 py-2">Registrada</Badge>;
     }
     if (ficha.fecha_cierre) {
       return <Badge bg="secondary" className="px-3 py-2">Cerrado</Badge>;
@@ -88,15 +88,15 @@ const ListaFichas = () => {
           <p className="text-muted mb-0">Panel unificado de todas las atenciones, visitas y reportes</p>
         </div>
         <div className="d-flex gap-2">
-          <Button 
+          <Button
             style={{ backgroundColor: '#0dcaf0', border: 'none', color: '#000' }}
             className="fw-bold shadow-sm"
             onClick={() => alert('Módulo de ficha jurídica en construcción')}
           >
             + Ficha Jurídica
           </Button>
-          
-          <Button 
+
+          <Button
             style={{ backgroundColor: 'var(--color-principal)', border: 'none' }}
             className="fw-bold shadow-sm"
             onClick={() => setShowTiposFicha(true)}
@@ -153,9 +153,9 @@ const ListaFichas = () => {
                         )}
                       </td>
                       <td>
-                        <Badge 
-                          bg={ficha.area === 'Social' ? 'info' : 'warning'} 
-                          text="dark" 
+                        <Badge
+                          bg={ficha.area === 'Social' ? 'info' : 'warning'}
+                          text="dark"
                           className="text-uppercase mb-1"
                         >
                           {ficha.area}
@@ -168,9 +168,9 @@ const ListaFichas = () => {
                         {renderEstado(ficha)}
                       </td>
                       <td className="px-4 text-end">
-                        <Button 
-                          variant="outline-primary" 
-                          size="sm" 
+                        <Button
+                          variant="outline-primary"
+                          size="sm"
                           className="fw-bold"
                           onClick={() => handleVerDetalles(ficha)}
                         >
@@ -196,14 +196,14 @@ const ListaFichas = () => {
         <Modal.Body className="p-4">
           <Row className="g-3">
             <Col md={6}>
-              <Button 
-                variant="outline-success" 
-                className="w-100 h-100 p-3 text-start fw-bold shadow-sm d-flex flex-column gap-2" 
+              <Button
+                variant="outline-success"
+                className="w-100 h-100 p-3 text-start fw-bold shadow-sm d-flex flex-column gap-2"
                 onClick={() => navigate('/dashboard/fichas/nueva-social')}
                 style={{ borderWidth: '2px' }}
               >
                 <div className="d-flex align-items-center gap-2">
-                  <span className="fs-3">📝</span> 
+                  <span className="fs-3">📝</span>
                   <span className="fs-5 text-dark">Atención Social</span>
                 </div>
                 <span className="small text-muted fw-normal">Registro principal de ingreso y seguimiento de casos sociales.</span>
@@ -211,14 +211,14 @@ const ListaFichas = () => {
             </Col>
 
             <Col md={6}>
-              <Button 
-                variant="outline-success" 
-                className="w-100 h-100 p-3 text-start fw-bold shadow-sm d-flex flex-column gap-2" 
+              <Button
+                variant="outline-success"
+                className="w-100 h-100 p-3 text-start fw-bold shadow-sm d-flex flex-column gap-2"
                 onClick={() => navigate('/dashboard/fichas/visita')}
                 style={{ borderWidth: '2px' }}
               >
                 <div className="d-flex align-items-center gap-2">
-                  <span className="fs-3">🏠</span> 
+                  <span className="fs-3">🏠</span>
                   <span className="fs-5 text-dark">Visita Domiciliaria</span>
                 </div>
                 <span className="small text-muted fw-normal">Reporte de terreno, evaluación in situ y verificación.</span>
@@ -226,14 +226,14 @@ const ListaFichas = () => {
             </Col>
 
             <Col md={6}>
-              <Button 
-                variant="outline-primary" 
-                className="w-100 h-100 p-3 text-start fw-bold shadow-sm d-flex flex-column gap-2" 
+              <Button
+                variant="outline-primary"
+                className="w-100 h-100 p-3 text-start fw-bold shadow-sm d-flex flex-column gap-2"
                 onClick={() => navigate('/dashboard/fichas/recopilacion')}
                 style={{ borderWidth: '2px' }}
               >
                 <div className="d-flex align-items-center gap-2">
-                  <span className="fs-3">📂</span> 
+                  <span className="fs-3">📂</span>
                   <span className="fs-5 text-dark">Recopilación Info.</span>
                 </div>
                 <span className="small text-muted fw-normal">Instrumento de recolección de datos socioeconómicos detallados.</span>
@@ -241,13 +241,13 @@ const ListaFichas = () => {
             </Col>
 
             <Col md={6}>
-              <Button 
-                variant="outline-secondary" 
-                className="w-100 h-100 p-3 text-start fw-bold shadow-sm d-flex flex-column gap-2 opacity-75" 
+              <Button
+                variant="outline-secondary"
+                className="w-100 h-100 p-3 text-start fw-bold shadow-sm d-flex flex-column gap-2 opacity-75"
                 onClick={() => alert('Módulo en construcción: Pronto podrás registrar Intervenciones.')}
               >
                 <div className="d-flex align-items-center gap-2">
-                  <span className="fs-3">🤝</span> 
+                  <span className="fs-3">🤝</span>
                   <span className="fs-5 text-dark">Intervención</span>
                 </div>
                 <span className="small text-muted fw-normal">Documento de intervención y tratamiento social.</span>
@@ -264,7 +264,7 @@ const ListaFichas = () => {
             📄 Resumen: {fichaSeleccionada?.tipoEspecifico}
           </Modal.Title>
         </Modal.Header>
-        
+
         <Modal.Body className="p-0">
           {/* SECCIÓN 1: PROTAGONISTAS (Paciente y Creador) */}
           <div className="bg-light p-4 border-bottom">
@@ -277,7 +277,7 @@ const ListaFichas = () => {
                 </h4>
                 <p className="text-secondary fw-bold mb-0">RUT: {fichaSeleccionada?.participants?.rut || 'Sin registrar'}</p>
               </Col>
-              
+
               {/* Bloque Creador / Coordinadora */}
               <Col md={6}>
                 <h6 className="text-muted fw-bold small text-uppercase mb-2">✍️ Elaborado Por</h6>
@@ -318,10 +318,19 @@ const ListaFichas = () => {
           <Button variant="outline-secondary" className="fw-bold" onClick={() => setShowDetalles(false)}>
             Cerrar Resumen
           </Button>
-          <Button 
+          <Button
             style={{ backgroundColor: 'var(--color-principal)', border: 'none' }}
             className="fw-bold px-4 shadow-sm"
-            onClick={() => alert(`Navegando a la vista completa de la ficha ID: ${fichaSeleccionada?.id}`)}
+            onClick={() => {
+              // Determinar la ruta según el tipo de ficha
+              let rutaTipo = '';
+              if (fichaSeleccionada?.tipoEspecifico === 'Atención Social') rutaTipo = 'social';
+              else if (fichaSeleccionada?.tipoEspecifico === 'Visita Domiciliaria') rutaTipo = 'visita';
+              else if (fichaSeleccionada?.tipoEspecifico === 'Recopilación Info.') rutaTipo = 'recopilacion';
+              else rutaTipo = 'juridica';
+
+              navigate(`/dashboard/fichas/ver/${rutaTipo}/${fichaSeleccionada.id}`);
+            }}
           >
             Abrir Ficha Completa
           </Button>
