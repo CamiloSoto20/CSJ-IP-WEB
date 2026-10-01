@@ -28,13 +28,11 @@ const ListaFichas = () => {
         supabase.from('visitas_records').select('id, created_at, participants(rut, nombre, apellido), perfiles(nombre, rol)')
       ]);
 
-      // Reportar errores en consola sin detener la app
       if (socialesRes.error) console.error('Error sociales:', socialesRes.error.message);
       if (juridicasRes.error) console.error('Error jurídicas:', juridicasRes.error.message);
       if (recopilacionRes.error) console.error('Error recopilación:', recopilacionRes.error.message);
       if (visitasRes.error) console.error('Error visitas:', visitasRes.error.message);
 
-      // Formateador unificado agregando Área y Tipo Específico
       const formatearData = (data, area, tipoEspecifico, campoFecha) => {
         return (data || []).map(item => ({
           ...item,
@@ -45,7 +43,6 @@ const ListaFichas = () => {
         }));
       };
 
-      // Unimos todos los registros y los ordenamos por fecha (del más reciente al más antiguo)
       const combinadas = [
         ...formatearData(socialesRes.data, 'Social', 'Atención Social', 'fecha_creacion'),
         ...formatearData(juridicasRes.data, 'Jurídica', 'Caso Jurídico', 'created_at'),
@@ -73,16 +70,14 @@ const ListaFichas = () => {
     setShowDetalles(true);
   };
 
-  // Función para determinar el badge del estado dependiendo del tipo de ficha
   const renderEstado = (ficha) => {
     if (ficha.tipoEspecifico === 'Recopilación Info.' || ficha.tipoEspecifico === 'Visita Domiciliaria') {
-      return <Badge bg="success">Registrada</Badge>; // Fichas de un solo uso
+      return <Badge bg="success" className="px-3 py-2">Registrada</Badge>; 
     }
-    // Para Atenciones Sociales y Jurídicas que tienen seguimiento y cierre
     if (ficha.fecha_cierre) {
-      return <Badge bg="secondary">Cerrado</Badge>;
+      return <Badge bg="secondary" className="px-3 py-2">Cerrado</Badge>;
     }
-    return <Badge bg="primary">Activo</Badge>;
+    return <Badge bg="primary" className="px-3 py-2">Activo</Badge>;
   };
 
   return (
@@ -150,9 +145,9 @@ const ListaFichas = () => {
                         <span className="text-muted small">{ficha.participants?.rut || 'Sin RUT'}</span>
                       </td>
                       <td>
-                        <span className="fw-medium d-block">{ficha.perfiles?.nombre || 'Sistema'}</span>
+                        <span className="fw-medium d-block">{ficha.perfiles?.nombre || 'Sistema (Registro Antiguo)'}</span>
                         {ficha.perfiles?.rol && (
-                          <Badge bg="light" text="dark" className="border mt-1" style={{ fontSize: '0.65rem' }}>
+                          <Badge bg="light" text="dark" className="border mt-1 text-capitalize" style={{ fontSize: '0.65rem' }}>
                             {ficha.perfiles.rol}
                           </Badge>
                         )}
@@ -262,55 +257,70 @@ const ListaFichas = () => {
         </Modal.Body>
       </Modal>
 
-      {/* MODAL 2: DETALLES RÁPIDOS DE LA FICHA */}
-      <Modal show={showDetalles} onHide={() => setShowDetalles(false)} centered>
-        <Modal.Header closeButton className={fichaSeleccionada?.area === 'Social' ? 'bg-info bg-opacity-25' : 'bg-warning bg-opacity-25'}>
-          <Modal.Title className="fw-bold fs-5">
-            {fichaSeleccionada?.tipoEspecifico} - Resumen
+      {/* MODAL 2: DETALLES RÁPIDOS DE LA FICHA (DISEÑO MEJORADO) */}
+      <Modal show={showDetalles} onHide={() => setShowDetalles(false)} centered size="lg">
+        <Modal.Header closeButton className={fichaSeleccionada?.area === 'Social' ? 'bg-info bg-opacity-10' : 'bg-warning bg-opacity-10'}>
+          <Modal.Title className="fw-bold fs-5 text-uppercase" style={{ color: 'var(--color-principal)' }}>
+            📄 Resumen: {fichaSeleccionada?.tipoEspecifico}
           </Modal.Title>
         </Modal.Header>
-        <Modal.Body className="p-4">
-          <Row className="g-3">
-            <Col xs={12}>
-              <h6 className="text-muted fw-bold small text-uppercase mb-1">Paciente Atendido</h6>
-              <p className="fs-5 fw-bold mb-0">
-                {fichaSeleccionada?.participants?.nombre} {fichaSeleccionada?.participants?.apellido}
-              </p>
-              <p className="text-muted">{fichaSeleccionada?.participants?.rut}</p>
-            </Col>
-            
-            <Col xs={6}>
-              <h6 className="text-muted fw-bold small text-uppercase mb-1">Fecha de Creación</h6>
-              <p className="fw-medium">{formatearFecha(fichaSeleccionada?.fecha_registro)}</p>
-            </Col>
-
-            <Col xs={6}>
-              <h6 className="text-muted fw-bold small text-uppercase mb-1">Estado</h6>
-              {fichaSeleccionada && renderEstado(fichaSeleccionada)}
-            </Col>
-
-            <Col xs={12}>
-              <Card className="bg-light border-0 p-3 mt-2">
-                <h6 className="text-muted fw-bold small text-uppercase mb-2">Profesional a Cargo</h6>
-                <div className="d-flex align-items-center gap-3">
-                  <div className="rounded-circle bg-secondary text-white d-flex align-items-center justify-content-center fw-bold" style={{ width: '40px', height: '40px' }}>
+        
+        <Modal.Body className="p-0">
+          {/* SECCIÓN 1: PROTAGONISTAS (Paciente y Creador) */}
+          <div className="bg-light p-4 border-bottom">
+            <Row className="g-4">
+              {/* Bloque Paciente */}
+              <Col md={6} className="border-end-md">
+                <h6 className="text-muted fw-bold small text-uppercase mb-2">👤 Datos del Paciente</h6>
+                <h4 className="fw-bolder mb-1">
+                  {fichaSeleccionada?.participants?.nombre} {fichaSeleccionada?.participants?.apellido}
+                </h4>
+                <p className="text-secondary fw-bold mb-0">RUT: {fichaSeleccionada?.participants?.rut || 'Sin registrar'}</p>
+              </Col>
+              
+              {/* Bloque Creador / Coordinadora */}
+              <Col md={6}>
+                <h6 className="text-muted fw-bold small text-uppercase mb-2">✍️ Elaborado Por</h6>
+                <div className="d-flex align-items-center gap-3 mt-2">
+                  <div className="rounded-circle bg-success text-white d-flex align-items-center justify-content-center fw-bold fs-5 shadow-sm" style={{ width: '45px', height: '45px' }}>
                     {fichaSeleccionada?.perfiles?.nombre?.charAt(0).toUpperCase() || '?'}
                   </div>
                   <div>
-                    <span className="fw-bold d-block">{fichaSeleccionada?.perfiles?.nombre || 'Usuario no asignado'}</span>
-                    <span className="text-muted small text-capitalize">{fichaSeleccionada?.perfiles?.rol || 'Sin rol'}</span>
+                    <span className="fw-bolder d-block fs-5 text-dark">
+                      {fichaSeleccionada?.perfiles?.nombre || 'Sistema (Registro Antiguo)'}
+                    </span>
+                    <Badge bg="success" className="text-capitalize mt-1 px-2 py-1">
+                      {fichaSeleccionada?.perfiles?.rol || 'Rol no especificado'}
+                    </Badge>
                   </div>
                 </div>
-              </Card>
-            </Col>
-          </Row>
+              </Col>
+            </Row>
+          </div>
+
+          {/* SECCIÓN 2: DATOS DEL DOCUMENTO */}
+          <div className="p-4">
+            <Row className="g-4">
+              <Col xs={6}>
+                <h6 className="text-muted fw-bold small text-uppercase mb-1">Fecha de Creación</h6>
+                <p className="fw-medium fs-5 mb-0">{formatearFecha(fichaSeleccionada?.fecha_registro)}</p>
+              </Col>
+
+              <Col xs={6}>
+                <h6 className="text-muted fw-bold small text-uppercase mb-2">Estado Actual</h6>
+                {fichaSeleccionada && renderEstado(fichaSeleccionada)}
+              </Col>
+            </Row>
+          </div>
         </Modal.Body>
-        <Modal.Footer>
-          <Button variant="outline-secondary" onClick={() => setShowDetalles(false)}>
-            Cerrar
+
+        <Modal.Footer className="bg-light">
+          <Button variant="outline-secondary" className="fw-bold" onClick={() => setShowDetalles(false)}>
+            Cerrar Resumen
           </Button>
           <Button 
             style={{ backgroundColor: 'var(--color-principal)', border: 'none' }}
+            className="fw-bold px-4 shadow-sm"
             onClick={() => alert(`Navegando a la vista completa de la ficha ID: ${fichaSeleccionada?.id}`)}
           >
             Abrir Ficha Completa
@@ -318,6 +328,13 @@ const ListaFichas = () => {
         </Modal.Footer>
       </Modal>
 
+      <style>
+        {`
+          @media (min-width: 768px) {
+            .border-end-md { border-right: 1px solid #dee2e6; }
+          }
+        `}
+      </style>
     </Container>
   );
 };
