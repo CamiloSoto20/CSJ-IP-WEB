@@ -15,6 +15,8 @@ import NuevaFichaSocial from './pages/coordinadora/fichas/NuevaFichaSocial';
 // Nuevas importaciones de Coordinadora
 import Estudiantes from './pages/coordinadora/Estudiantes';
 import PerfilEstudiante from './pages/coordinadora/PerfilEstudiante';
+import FichaRecopilacion from './pages/coordinadora/fichas/FichaRecopilacion';
+import FichaVisitaDomiciliaria from './pages/coordinadora/fichas/FichaVisitaDomiciliaria';
 
 // Módulo Estudiantes
 import PanelEstudiantes from './pages/PanelEstudiantes';
@@ -56,6 +58,8 @@ function App() {
           <Route path="/dashboard/informacion" element={<Informacion />} /> 
           <Route path="/dashboard/fichas" element={<ListaFichas />} />
           <Route path="/dashboard/fichas/nueva-social" element={<NuevaFichaSocial />} />
+          <Route path="/dashboard/fichas/recopilacion" element={<FichaRecopilacion />} />
+          <Route path="/dashboard/fichas/visita" element={<FichaVisitaDomiciliaria />} />
           
           {/* Rutas del Directorio de Estudiantes */}
           <Route path="/dashboard/estudiantes" element={<Estudiantes />} />

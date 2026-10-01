@@ -6,12 +6,12 @@ import { supabase } from '../../lib/supabase';
 const ListaFichas = () => {
   const [fichas, setFichas] = useState([]);
   const [loading, setLoading] = useState(true);
-  
+
   // Estados para modales
   const [fichaSeleccionada, setFichaSeleccionada] = useState(null);
   const [showDetalles, setShowDetalles] = useState(false);
   const [showTiposFicha, setShowTiposFicha] = useState(false); // Nuevo estado para el cuadro de opciones
-  
+
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -43,7 +43,7 @@ const ListaFichas = () => {
         return (data || []).map(item => ({
           ...item,
           tipo,
-          fecha_registro: item[campoFecha], 
+          fecha_registro: item[campoFecha],
           timestamp: new Date(item[campoFecha] || 0).getTime()
         }));
       };
@@ -81,16 +81,16 @@ const ListaFichas = () => {
           <p className="text-muted mb-0">Panel unificado de fichas Sociales y Jurídicas</p>
         </div>
         <div className="d-flex gap-2">
-          <Button 
+          <Button
             style={{ backgroundColor: '#0dcaf0', border: 'none', color: '#000' }}
             className="fw-bold shadow-sm"
             onClick={() => alert('Módulo de ficha jurídica en construcción')}
           >
             + Ficha Jurídica
           </Button>
-          
+
           {/* BOTÓN ACTUALIZADO PARA ABRIR EL CUADRO DE OPCIONES */}
-          <Button 
+          <Button
             style={{ backgroundColor: 'var(--color-principal)', border: 'none' }}
             className="fw-bold shadow-sm"
             onClick={() => setShowTiposFicha(true)}
@@ -147,9 +147,9 @@ const ListaFichas = () => {
                         )}
                       </td>
                       <td>
-                        <Badge 
-                          bg={ficha.tipo === 'Social' ? 'info' : 'warning'} 
-                          text="dark" 
+                        <Badge
+                          bg={ficha.tipo === 'Social' ? 'info' : 'warning'}
+                          text="dark"
                           className="px-2 py-1 text-uppercase"
                         >
                           {ficha.tipo}
@@ -163,9 +163,9 @@ const ListaFichas = () => {
                         )}
                       </td>
                       <td className="px-4 text-end">
-                        <Button 
-                          variant="outline-primary" 
-                          size="sm" 
+                        <Button
+                          variant="outline-primary"
+                          size="sm"
                           className="fw-bold"
                           onClick={() => handleVerDetalles(ficha)}
                         >
@@ -189,49 +189,50 @@ const ListaFichas = () => {
           </Modal.Title>
         </Modal.Header>
         <Modal.Body className="d-flex flex-column gap-3 p-4">
-          <Button 
-            variant="outline-success" 
-            className="p-3 text-start fw-bold shadow-sm d-flex align-items-center gap-3" 
+          <Button
+            variant="outline-success"
+            className="p-3 text-start fw-bold shadow-sm d-flex align-items-center gap-3"
             onClick={() => navigate('/dashboard/fichas/nueva-social')}
             style={{ fontSize: '1.05rem', borderWidth: '2px' }}
           >
-            <span className="fs-3">📝</span> 
+            <span className="fs-3">📝</span>
             <div>
               <span className="d-block text-dark">Ficha de Atención</span>
               <span className="small text-muted fw-normal">Registro principal de ingreso y seguimiento</span>
             </div>
           </Button>
 
-          <Button 
-            variant="outline-secondary" 
-            className="p-3 text-start fw-bold shadow-sm d-flex align-items-center gap-3 opacity-75" 
-            onClick={() => alert('Módulo en construcción: Pronto podrás registrar Visitas Domiciliarias.')}
+          <Button
+            variant="outline-success"
+            className="p-3 text-start fw-bold shadow-sm d-flex align-items-center gap-3"
+            onClick={() => navigate('/dashboard/fichas/visita')}
+            style={{ fontSize: '1.05rem', borderWidth: '2px' }}
           >
-            <span className="fs-3">🏠</span> 
+            <span className="fs-3">🏠</span>
             <div>
               <span className="d-block text-dark">Ficha de Reporte de Visita Domiciliaria</span>
-              <span className="small text-muted fw-normal">Próximamente disponible</span>
+              <span className="small text-muted fw-normal">Registro de terreno y evaluación in situ</span>
             </div>
           </Button>
 
-          <Button 
-            variant="outline-secondary" 
-            className="p-3 text-start fw-bold shadow-sm d-flex align-items-center gap-3 opacity-75" 
-            onClick={() => alert('Módulo en construcción: Pronto podrás usar la Ficha de Recopilación.')}
+          <Button
+            variant="outline-primary"
+            className="p-3 text-start fw-bold shadow-sm d-flex align-items-center gap-3"
+            onClick={() => navigate('/dashboard/fichas/recopilacion')}
+            style={{ fontSize: '1.05rem', borderWidth: '2px' }}
           >
-            <span className="fs-3">📂</span> 
+            <span className="fs-3">📂</span>
             <div>
               <span className="d-block text-dark">Ficha de Recopilación de Información</span>
-              <span className="small text-muted fw-normal">Próximamente disponible</span>
+              <span className="small text-muted fw-normal">Instrumento de recolección de datos socioeconómicos</span>
             </div>
           </Button>
-
-          <Button 
-            variant="outline-secondary" 
-            className="p-3 text-start fw-bold shadow-sm d-flex align-items-center gap-3 opacity-75" 
+          <Button
+            variant="outline-secondary"
+            className="p-3 text-start fw-bold shadow-sm d-flex align-items-center gap-3 opacity-75"
             onClick={() => alert('Módulo en construcción: Pronto podrás registrar Intervenciones.')}
           >
-            <span className="fs-3">🤝</span> 
+            <span className="fs-3">🤝</span>
             <div>
               <span className="d-block text-dark">Ficha de Intervención</span>
               <span className="small text-muted fw-normal">Próximamente disponible</span>
@@ -256,7 +257,7 @@ const ListaFichas = () => {
               </p>
               <p className="text-muted">{fichaSeleccionada?.participants?.rut}</p>
             </Col>
-            
+
             <Col xs={6}>
               <h6 className="text-muted fw-bold small text-uppercase mb-1">Fecha de Creación</h6>
               <p className="fw-medium">{formatearFecha(fichaSeleccionada?.fecha_registro)}</p>
@@ -289,7 +290,7 @@ const ListaFichas = () => {
           <Button variant="outline-secondary" onClick={() => setShowDetalles(false)}>
             Cerrar
           </Button>
-          <Button 
+          <Button
             style={{ backgroundColor: 'var(--color-principal)', border: 'none' }}
             onClick={() => alert(`Navegando a la vista completa de la ficha ID: ${fichaSeleccionada?.id}`)}
           >
