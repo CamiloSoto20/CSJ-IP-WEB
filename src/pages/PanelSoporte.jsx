@@ -16,12 +16,16 @@ const PanelSoporte = () => {
   const [showFichasModal, setShowFichasModal] = useState(false);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [showAvisoModal, setShowAvisoModal] = useState(false);
+  const [showInboxModal, setShowInboxModal] = useState(false);
+  const [showPasswordRequestsModal, setShowPasswordRequestsModal] = useState(false); // NUEVO MODAL
   
   // Estados de datos
   const [saving, setSaving] = useState(false);
   const [loadingData, setLoadingData] = useState(true);
-  const [usuarios, setUsuarios] = useState([]); // Cambiado de "estudiantes" a "usuarios"
+  const [usuarios, setUsuarios] = useState([]);
   const [citasAgendadas, setCitasAgendadas] = useState([]);
+  const [mensajesSoporte, setMensajesSoporte] = useState([]);
+  const [solicitudesPassword, setSolicitudesPassword] = useState([]); // NUEVO ESTADO
   const [perfilSoporte, setPerfilSoporte] = useState({ nombre: 'Cargando...', rol: 'Soporte TI' });
   
   // Estados de selección y formularios
@@ -37,16 +41,24 @@ const PanelSoporte = () => {
     fetchDatosSoporte();
     fetchUsuarios();
     fetchCitasAgendadas(true);
+    fetchMensajesSoporte();
+    fetchSolicitudesPassword(); // NUEVA LLAMADA
 
-    const citasSubscription = supabase
-      .channel('custom-all-channel')
+    // Suscripciones en tiempo real
+    const channels = supabase.channel('soporte-channels')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'appointments' }, () => {
         fetchCitasAgendadas(true);
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'mensajes_soporte' }, () => {
+        fetchMensajesSoporte();
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'solicitudes_password' }, () => {
+        fetchSolicitudesPassword(); // NUEVA SUSCRIPCIÓN
       })
       .subscribe();
 
     return () => {
-      supabase.removeChannel(citasSubscription);
+      supabase.removeChannel(channels);
     };
   }, []);
 
@@ -64,11 +76,10 @@ const PanelSoporte = () => {
 
   const fetchUsuarios = async () => {
     try {
-      // Traemos todos los perfiles para gestionar a estudiantes, coordinadoras y supervisores
       const { data, error } = await supabase
         .from('perfiles')
         .select('*')
-        .neq('rol', 'soporte') // Excluimos al propio soporte para no autobloquearse
+        .neq('rol', 'soporte')
         .order('created_at', { ascending: false });
       if (error) throw error;
       setUsuarios(data || []);
@@ -84,10 +95,34 @@ const PanelSoporte = () => {
       const { data, error } = await supabase.from('appointments').select('*').order('fecha', { ascending: true });
       if (error) throw error;
       setCitasAgendadas(data || []);
-      if (!silencioso) setShowFichasModal(true);
     } catch (error) {
       console.error("Error al cargar citas:", error.message);
-      if (!silencioso) alert("No se pudieron cargar las citas.");
+    }
+  };
+
+  const fetchMensajesSoporte = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('mensajes_soporte')
+        .select('*, perfiles(nombre, correo)')
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      setMensajesSoporte(data || []);
+    } catch (error) {
+      console.error("Error al cargar mensajes:", error.message);
+    }
+  };
+
+  const fetchSolicitudesPassword = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('solicitudes_password')
+        .select('*')
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      setSolicitudesPassword(data || []);
+    } catch (error) {
+      console.error("Error al cargar solicitudes de clave:", error.message);
     }
   };
 
@@ -104,8 +139,6 @@ const PanelSoporte = () => {
     setSaving(true);
     
     try {
-      // TRUCO: Creamos un cliente secundario de Supabase sin persistencia de sesión
-      // Esto evita que la sesión actual de Soporte TI se cierre al crear el nuevo usuario
       const supabaseSignup = createClient(
         import.meta.env.VITE_SUPABASE_URL,
         import.meta.env.VITE_SUPABASE_ANON_KEY,
@@ -120,7 +153,6 @@ const PanelSoporte = () => {
       if (authError) throw authError;
 
       if (authData.user) {
-        // Determinamos la carrera a guardar
         let carreraFinal = null;
         if (formData.rol === 'estudiante') {
           carreraFinal = formData.carreraSelect === 'Otro' ? formData.carreraOtro : formData.carreraSelect;
@@ -132,7 +164,7 @@ const PanelSoporte = () => {
           nombre: formData.nombre, 
           correo: formData.correo, 
           rol: formData.rol,
-          carrera: carreraFinal // RECUERDA CREAR ESTA COLUMNA EN SUPABASE
+          carrera: carreraFinal
         }]);
         
         if (profileError) throw profileError;
@@ -220,6 +252,33 @@ const PanelSoporte = () => {
     }, 800);
   };
 
+  const handleResolverMensaje = async (id) => {
+    try {
+      const { error } = await supabase.from('mensajes_soporte').update({ estado: 'Resuelto' }).eq('id', id);
+      if (error) throw error;
+      fetchMensajesSoporte();
+    } catch (error) {
+      alert("Error al actualizar el ticket.");
+    }
+  };
+
+  const handleResolverSolicitudPassword = async (id, nuevoEstado, correo) => {
+    try {
+      const { error } = await supabase.from('solicitudes_password').update({ estado: nuevoEstado }).eq('id', id);
+      if (error) throw error;
+      fetchSolicitudesPassword();
+      
+      if (nuevoEstado === 'Aprobado') {
+        alert(`Solicitud aprobada para ${correo}. Aquí se dispararía el reseteo manual. (Simulación UI)`);
+      }
+    } catch (error) {
+      alert("Error al gestionar la solicitud.");
+    }
+  };
+
+  const mensajesPendientes = mensajesSoporte.filter(m => m.estado === 'Pendiente');
+  const solicitudesPendientes = solicitudesPassword.filter(s => s.estado === 'Pendiente');
+
   return (
     <>
       <style>
@@ -259,6 +318,39 @@ const PanelSoporte = () => {
             <Col md={4}>
               <Card className="border-0 shadow-sm h-100" style={{ borderRadius: '15px' }}>
                 <Card.Body className="d-flex flex-column gap-3">
+                  
+                  {/* ATENCIÓN AL USUARIO */}
+                  <div>
+                    <h5 className="fw-bold mb-3" style={{ color: 'var(--color-principal)' }}>Atención al Usuario</h5>
+                    
+                    {/* Tickets de Soporte */}
+                    <Button 
+                      variant="outline-danger" 
+                      className="w-100 fw-bold d-flex align-items-center justify-content-between py-2 mb-2" 
+                      onClick={() => setShowInboxModal(true)} 
+                      style={{ borderRadius: '12px' }}
+                    >
+                      <div className="d-flex align-items-center gap-2">
+                        <span>📥</span> Bandeja de Soporte
+                      </div>
+                      {mensajesPendientes.length > 0 && <Badge bg="danger" className="rounded-pill">{mensajesPendientes.length}</Badge>}
+                    </Button>
+
+                    {/* Solicitudes de Contraseña */}
+                    <Button 
+                      variant="outline-warning" 
+                      className="w-100 fw-bold d-flex align-items-center justify-content-between py-2 mb-2" 
+                      onClick={() => setShowPasswordRequestsModal(true)} 
+                      style={{ borderRadius: '12px' }}
+                    >
+                      <div className="d-flex align-items-center gap-2">
+                        <span>🔑</span> Solicitudes de Clave
+                      </div>
+                      {solicitudesPendientes.length > 0 && <Badge bg="warning" text="dark" className="rounded-pill">{solicitudesPendientes.length}</Badge>}
+                    </Button>
+                  </div>
+                  <hr className="my-2" style={{ borderColor: isDarkMode ? '#334155' : '#dee2e6' }} />
+
                   <div>
                     <h5 className="fw-bold mb-3" style={{ color: 'var(--color-principal)' }}>Extracción y Avisos</h5>
                     <Button variant="success" className="w-100 fw-bold d-flex align-items-center justify-content-center gap-2 py-2 mb-2" onClick={handleDownloadExcel} style={{ borderRadius: '12px' }}>
@@ -338,6 +430,92 @@ const PanelSoporte = () => {
             </Col>
           </Row>
 
+          {/* Modal Bandeja de Soporte */}
+          <Modal show={showInboxModal} onHide={() => setShowInboxModal(false)} size="lg" centered>
+            <Modal.Header closeButton>
+              <Modal.Title className="fw-bold text-danger">📥 Bandeja de Soporte TI</Modal.Title>
+            </Modal.Header>
+            <Modal.Body style={{ maxHeight: '60vh', overflowY: 'auto' }}>
+              {mensajesSoporte.length === 0 ? (
+                <div className="text-center py-5">
+                  <h5 className="text-muted fw-bold">Bandeja Vacía</h5>
+                  <p className="text-muted small">No hay tickets de soporte registrados.</p>
+                </div>
+              ) : (
+                <div className="d-flex flex-column gap-3">
+                  {mensajesSoporte.map(msg => (
+                    <Card key={msg.id} className="border-0 shadow-sm" style={{ backgroundColor: isDarkMode ? '#0f172a' : '#f8f9fa' }}>
+                      <Card.Body>
+                        <div className="d-flex justify-content-between align-items-start mb-2">
+                          <div>
+                            <h6 className="fw-bold mb-1">{msg.asunto}</h6>
+                            <span className="small text-muted fw-bold d-block">De: {msg.perfiles?.nombre} ({msg.perfiles?.correo})</span>
+                            <span className="small text-muted">{new Date(msg.created_at).toLocaleString('es-CL')}</span>
+                          </div>
+                          <Badge bg={msg.estado === 'Pendiente' ? 'warning' : 'success'} text={msg.estado === 'Pendiente' ? 'dark' : 'light'}>
+                            {msg.estado}
+                          </Badge>
+                        </div>
+                        <p className="small mb-3 mt-2" style={{ whiteSpace: 'pre-wrap' }}>{msg.mensaje}</p>
+                        {msg.estado === 'Pendiente' && (
+                          <div className="text-end">
+                            <Button variant="outline-success" size="sm" onClick={() => handleResolverMensaje(msg.id)}>
+                              ✓ Marcar como Resuelto
+                            </Button>
+                          </div>
+                        )}
+                      </Card.Body>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </Modal.Body>
+          </Modal>
+
+          {/* NUEVO MODAL: Solicitudes de Recuperación de Contraseña */}
+          <Modal show={showPasswordRequestsModal} onHide={() => setShowPasswordRequestsModal(false)} size="lg" centered>
+            <Modal.Header closeButton>
+              <Modal.Title className="fw-bold text-warning">🔑 Solicitudes de Recuperación</Modal.Title>
+            </Modal.Header>
+            <Modal.Body style={{ maxHeight: '60vh', overflowY: 'auto' }}>
+              {solicitudesPassword.length === 0 ? (
+                <div className="text-center py-5">
+                  <h5 className="text-muted fw-bold">Bandeja Vacía</h5>
+                  <p className="text-muted small">No hay solicitudes de recuperación de contraseña.</p>
+                </div>
+              ) : (
+                <div className="d-flex flex-column gap-3">
+                  {solicitudesPassword.map(solicitud => (
+                    <Card key={solicitud.id} className="border-0 shadow-sm" style={{ backgroundColor: isDarkMode ? '#0f172a' : '#f8f9fa' }}>
+                      <Card.Body>
+                        <div className="d-flex justify-content-between align-items-start mb-2">
+                          <div>
+                            <h6 className="fw-bold mb-1">Solicitud de Restablecimiento</h6>
+                            <span className="small text-muted fw-bold d-block">Correo: {solicitud.correo}</span>
+                            <span className="small text-muted">{new Date(solicitud.created_at).toLocaleString('es-CL')}</span>
+                          </div>
+                          <Badge bg={solicitud.estado === 'Pendiente' ? 'warning' : solicitud.estado === 'Aprobado' ? 'success' : 'danger'} text={solicitud.estado === 'Pendiente' ? 'dark' : 'light'}>
+                            {solicitud.estado}
+                          </Badge>
+                        </div>
+                        {solicitud.estado === 'Pendiente' && (
+                          <div className="text-end mt-3">
+                            <Button variant="outline-danger" size="sm" className="me-2" onClick={() => handleResolverSolicitudPassword(solicitud.id, 'Denegado', solicitud.correo)}>
+                              ❌ Denegar
+                            </Button>
+                            <Button variant="outline-success" size="sm" onClick={() => handleResolverSolicitudPassword(solicitud.id, 'Aprobado', solicitud.correo)}>
+                              ✓ Permitir y Restablecer
+                            </Button>
+                          </div>
+                        )}
+                      </Card.Body>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </Modal.Body>
+          </Modal>
+
           {/* Modal: Crear Usuario */}
           <Modal show={showCreateModal} onHide={() => setShowCreateModal(false)} centered>
             <Modal.Header closeButton><Modal.Title className="fs-5 fw-bold" style={{ color: 'var(--color-principal)' }}>Crear Nuevo Usuario</Modal.Title></Modal.Header>
@@ -363,7 +541,6 @@ const PanelSoporte = () => {
                   <Form.Control type="email" name="correo" value={formData.correo} onChange={handleChange} required />
                 </Form.Group>
 
-                {/* Mostrar opciones de carrera solo si el rol es estudiante */}
                 {formData.rol === 'estudiante' && (
                   <Form.Group className="mb-3">
                     <Form.Label className="small fw-bold">Carrera</Form.Label>
@@ -375,14 +552,7 @@ const PanelSoporte = () => {
                     </Form.Select>
                     
                     {formData.carreraSelect === 'Otro' && (
-                      <Form.Control 
-                        className="mt-2" 
-                        name="carreraOtro" 
-                        placeholder="Especifique la carrera" 
-                        value={formData.carreraOtro} 
-                        onChange={handleChange} 
-                        required 
-                      />
+                      <Form.Control className="mt-2" name="carreraOtro" placeholder="Especifique la carrera" value={formData.carreraOtro} onChange={handleChange} required />
                     )}
                   </Form.Group>
                 )}
