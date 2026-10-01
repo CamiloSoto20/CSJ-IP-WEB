@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Container, Card, Form, Row, Col, Button, Accordion } from 'react-bootstrap';
+import { Container, Card, Form, Row, Col, Button, Accordion, Badge } from 'react-bootstrap';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../../lib/supabase';
 import { useAuth } from '../../../context/AuthContext';
@@ -9,28 +9,50 @@ const NuevaFichaSocial = () => {
   const { user } = useAuth();
   const [saving, setSaving] = useState(false);
 
+  // Fecha actual fija
+  const fechaActual = new Date().toISOString().split('T')[0];
+
   const [formData, setFormData] = useState({
-    // I. Identificación
-    nombre: '', rut: '', fechaNacimiento: '', direccion: '', 
+    nombre: '', apellido: '', rut: '', fechaNacimiento: '', direccion: '', 
     sistemaSalud: '', sistemaPrevisional: '', correo: '', celular: '', 
     nacionalidad: '', etnia: '',
-    // II. Motivo
     lineaAtencion: '', viaDerivacion: '', materiaEspecifica: '', asesoramiento: '',
     creacionDocumento: '', otroMotivo: '', compromisoUsuario: '', compromisoProfesional: '', observacion: '',
-    // III. Seguimiento
     llamadasCantidad: '', llamadasFechas: '', llamadasResultado: '',
     visitasCantidad: '', visitasFechas: '', visitasResultado: '',
     teamsCantidad: '', teamsFechas: '', teamsResultado: '',
-    // IV. Cierre
     lugarDerivacion: '', causaCierre: '', profesionalDeriva: '', fechaCierre: ''
   });
 
+  // Formateador de RUT (Aplica puntos en miles y guion final correctamente)
+  const formatRUT = (rut) => {
+    const cleanRut = rut.replace(/[^0-9kK]/g, '').toUpperCase();
+    if (!cleanRut) return '';
+    if (cleanRut.length <= 1) return cleanRut;
+    
+    const dv = cleanRut.slice(-1);
+    const rutBody = cleanRut.slice(0, -1).replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+    return `${rutBody}-${dv}`;
+  };
+
   const handleChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
+    const { name, value } = e.target;
+    if (name === 'rut') {
+      setFormData({ ...formData, rut: formatRUT(value) });
+    } else {
+      setFormData({ ...formData, [name]: value });
+    }
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    // Validación estricta de correo electrónico
+    if (formData.correo && !formData.correo.includes('@')) {
+      alert('Por favor, ingrese un correo electrónico válido que contenga "@"');
+      return;
+    }
+
     setSaving(true);
     
     try {
@@ -44,8 +66,13 @@ const NuevaFichaSocial = () => {
         const { data: nuevoPart, error: errPart } = await supabase
           .from('participants')
           .insert([{ 
-            rut: formData.rut, nombre: formData.nombre, fecha_nacimiento: formData.fechaNacimiento,
-            direccion: formData.direccion, correo: formData.correo, telefono: formData.celular,
+            rut: formData.rut, 
+            nombre: formData.nombre, 
+            apellido: formData.apellido,
+            fecha_nacimiento: formData.fechaNacimiento || null,
+            direccion: formData.direccion, 
+            correo: formData.correo, 
+            telefono: formData.celular,
             nacionalidad: formData.nacionalidad 
           }])
           .select().single();
@@ -58,7 +85,6 @@ const NuevaFichaSocial = () => {
         .from('social_records')
         .insert([{
           participant_id: participante.id,
-          // Evitamos el error de Foreign Key enviando null si el perfil no existe
           professional_id: user?.id || null, 
           linea_atencion: formData.lineaAtencion,
           via_derivacion: formData.viaDerivacion,
@@ -101,72 +127,143 @@ const NuevaFichaSocial = () => {
     <Container fluid className="py-4">
       <div className="d-flex justify-content-between align-items-center mb-4">
         <div>
-          <h3 className="fw-bold mb-1" style={{ color: 'var(--color-principal, #006A38)' }}>Ingreso Ficha Social</h3>
+          <h3 className="fw-bold mb-1" style={{ color: 'var(--color-principal, #006A38)' }}>Ficha de Atención Social</h3>
           <p className="text-muted mb-0">Formulario oficial de atención, seguimiento y cierre</p>
         </div>
-        <Button variant="outline-secondary" onClick={() => navigate('/dashboard/fichas')}>
-          &larr; Volver a Fichas
-        </Button>
+        <div className="d-flex align-items-center gap-3">
+          <Badge bg="light" text="dark" className="border px-3 py-2 fs-6">
+            📅 Fecha: {new Date(fechaActual).toLocaleDateString('es-CL')}
+          </Badge>
+          <Button variant="outline-secondary" onClick={() => navigate('/dashboard/fichas')}>
+            &larr; Volver
+          </Button>
+        </div>
       </div>
 
       <Form onSubmit={handleSubmit}>
         
-        {/* I. IDENTIFICACIÓN DE USUARIOS (Siempre visible) */}
-        <Card className="border-0 shadow-sm mb-4">
+        {/* I. IDENTIFICACIÓN DE USUARIOS */}
+        <Card className="border-0 shadow-sm mb-4 rounded-4">
           <Card.Header className="bg-white border-bottom-0 pt-4 pb-0">
             <h6 className="fw-bold text-uppercase" style={{ color: 'var(--color-principal, #006A38)' }}>I. Identificación del Usuario</h6>
           </Card.Header>
           <Card.Body>
             <Row className="g-3">
-              <Col md={6}><Form.Control name="nombre" placeholder="Nombre completo" onChange={handleChange} required /></Col>
-              <Col md={3}><Form.Control name="rut" placeholder="Cédula de Identidad" onChange={handleChange} required /></Col>
-              <Col md={3}><Form.Control type="date" name="fechaNacimiento" onChange={handleChange} title="Fecha de Nacimiento" /></Col>
-              <Col md={6}><Form.Control name="direccion" placeholder="Dirección completa" onChange={handleChange} /></Col>
-              <Col md={3}><Form.Control name="celular" placeholder="N° de Celular" onChange={handleChange} /></Col>
-              <Col md={3}><Form.Control type="email" name="correo" placeholder="Correo electrónico" onChange={handleChange} /></Col>
               <Col md={3}>
+                <Form.Label className="small fw-bold text-muted">RUT</Form.Label>
+                <Form.Control name="rut" value={formData.rut} placeholder="12.345.678-9" onChange={handleChange} required maxLength={12} className="fw-bold"/>
+              </Col>
+              <Col md={4}>
+                <Form.Label className="small fw-bold text-muted">Nombres</Form.Label>
+                <Form.Control name="nombre" placeholder="Nombres del usuario" onChange={handleChange} required />
+              </Col>
+              <Col md={5}>
+                <Form.Label className="small fw-bold text-muted">Apellidos</Form.Label>
+                <Form.Control name="apellido" placeholder="Apellidos del usuario" onChange={handleChange} required />
+              </Col>
+              
+              <Col md={3}>
+                <Form.Label className="small fw-bold text-muted">Fecha Nacimiento</Form.Label>
+                <Form.Control type="date" name="fechaNacimiento" onChange={handleChange} />
+              </Col>
+              <Col md={9}>
+                <Form.Label className="small fw-bold text-muted">Dirección Completa</Form.Label>
+                <Form.Control name="direccion" placeholder="Calle, Número, Comuna..." onChange={handleChange} />
+              </Col>
+              
+              <Col md={3}>
+                <Form.Label className="small fw-bold text-muted">N° Celular</Form.Label>
+                <Form.Control name="celular" placeholder="+56 9..." onChange={handleChange} />
+              </Col>
+              <Col md={5}>
+                <Form.Label className="small fw-bold text-muted">Correo Electrónico</Form.Label>
+                <Form.Control type="email" name="correo" placeholder="ejemplo@correo.com" onChange={handleChange} />
+              </Col>
+              <Col md={4}>
+                <Form.Label className="small fw-bold text-muted">Nacionalidad</Form.Label>
+                <Form.Control name="nacionalidad" placeholder="Nacionalidad" onChange={handleChange} />
+              </Col>
+              
+              <Col md={4}>
+                <Form.Label className="small fw-bold text-muted">Sistema de Salud</Form.Label>
                 <Form.Select name="sistemaSalud" onChange={handleChange}>
-                  <option value="">Sistema de Salud...</option>
+                  <option value="">Seleccione...</option>
                   <option value="Fonasa">Fonasa</option>
                   <option value="Isapre">Isapre</option>
+                  <option value="Ninguno">Ninguno</option>
                   <option value="Otro">Otro</option>
                 </Form.Select>
               </Col>
-              <Col md={3}><Form.Control name="sistemaPrevisional" placeholder="Sistema Previsional" onChange={handleChange} /></Col>
-              <Col md={3}><Form.Control name="nacionalidad" placeholder="Nacionalidad" onChange={handleChange} /></Col>
-              <Col md={3}><Form.Control name="etnia" placeholder="Etnia (Opcional)" onChange={handleChange} /></Col>
+              <Col md={4}>
+                <Form.Label className="small fw-bold text-muted">Sistema Previsional</Form.Label>
+                <Form.Select name="sistemaPrevisional" onChange={handleChange}>
+                  <option value="">Seleccione...</option>
+                  <option value="AFP">AFP</option>
+                  <option value="INP">INP / IPS</option>
+                  <option value="Ninguno">Ninguno</option>
+                  <option value="Otro">Otro</option>
+                </Form.Select>
+              </Col>
+              <Col md={4}>
+                <Form.Label className="small fw-bold text-muted">Etnia (Opcional)</Form.Label>
+                <Form.Control name="etnia" placeholder="Etnia" onChange={handleChange} />
+              </Col>
             </Row>
           </Card.Body>
         </Card>
 
-        {/* II. MOTIVO DE LA ATENCIÓN (Siempre visible) */}
-        <Card className="border-0 shadow-sm mb-4">
+        {/* II. MOTIVO DE LA ATENCIÓN */}
+        <Card className="border-0 shadow-sm mb-4 rounded-4">
           <Card.Header className="bg-white border-bottom-0 pt-4 pb-0">
             <h6 className="fw-bold text-uppercase" style={{ color: 'var(--color-principal, #006A38)' }}>II. Motivo de la Atención</h6>
           </Card.Header>
           <Card.Body>
             <Row className="g-3 mb-3">
-              <Col md={4}><Form.Control name="lineaAtencion" placeholder="Línea de atención" onChange={handleChange} /></Col>
-              <Col md={4}><Form.Control name="viaDerivacion" placeholder="Vía de derivación a la CSJ" onChange={handleChange} /></Col>
-              <Col md={4}><Form.Control name="materiaEspecifica" placeholder="Materia específica" onChange={handleChange} /></Col>
+              <Col md={4}>
+                <Form.Label className="small fw-bold text-muted">Línea de Atención</Form.Label>
+                <Form.Control name="lineaAtencion" placeholder="Especifique" onChange={handleChange} />
+              </Col>
+              <Col md={4}>
+                <Form.Label className="small fw-bold text-muted">Vía de Derivación a la CSJ</Form.Label>
+                <Form.Control name="viaDerivacion" placeholder="Especifique" onChange={handleChange} />
+              </Col>
+              <Col md={4}>
+                <Form.Label className="small fw-bold text-muted">Materia Específica</Form.Label>
+                <Form.Control name="materiaEspecifica" placeholder="Especifique" onChange={handleChange} />
+              </Col>
             </Row>
             <Row className="g-3 mb-3">
-              <Col md={4}><Form.Control name="asesoramiento" placeholder="Detalle: Asesoramiento" onChange={handleChange} /></Col>
-              <Col md={4}><Form.Control name="creacionDocumento" placeholder="Detalle: Creación de documento" onChange={handleChange} /></Col>
-              <Col md={4}><Form.Control name="otroMotivo" placeholder="Detalle: Otro" onChange={handleChange} /></Col>
+              <Col md={4}>
+                <Form.Label className="small fw-bold text-muted">Asesoramiento</Form.Label>
+                <Form.Control name="asesoramiento" placeholder="Detalle" onChange={handleChange} />
+              </Col>
+              <Col md={4}>
+                <Form.Label className="small fw-bold text-muted">Creación de Documento</Form.Label>
+                <Form.Control name="creacionDocumento" placeholder="Detalle" onChange={handleChange} />
+              </Col>
+              <Col md={4}>
+                <Form.Label className="small fw-bold text-muted">Otro Motivo</Form.Label>
+                <Form.Control name="otroMotivo" placeholder="Detalle" onChange={handleChange} />
+              </Col>
             </Row>
             <Row className="g-3 mb-3">
-              <Col md={6}><Form.Control as="textarea" rows={2} name="compromisoUsuario" placeholder="Compromiso del usuario" onChange={handleChange} /></Col>
-              <Col md={6}><Form.Control as="textarea" rows={2} name="compromisoProfesional" placeholder="Compromiso del profesional" onChange={handleChange} /></Col>
+              <Col md={6}>
+                <Form.Label className="small fw-bold text-muted">Compromiso del Usuario</Form.Label>
+                <Form.Control as="textarea" rows={3} name="compromisoUsuario" placeholder="Acuerdos..." onChange={handleChange} />
+              </Col>
+              <Col md={6}>
+                <Form.Label className="small fw-bold text-muted">Compromiso del Profesional</Form.Label>
+                <Form.Control as="textarea" rows={3} name="compromisoProfesional" placeholder="Acuerdos..." onChange={handleChange} />
+              </Col>
             </Row>
-            <Form.Control as="textarea" rows={2} name="observacion" placeholder="Observación general del profesional" onChange={handleChange} />
+            <Form.Label className="small fw-bold text-muted">Observación General</Form.Label>
+            <Form.Control as="textarea" rows={3} name="observacion" placeholder="Comentarios adicionales del profesional" onChange={handleChange} />
           </Card.Body>
         </Card>
 
-        {/* SECCIONES DESPLEGABLES PARA MANTENER LA VISTA LIMPIA */}
+        {/* SECCIONES DESPLEGABLES */}
         <Accordion className="mb-4 shadow-sm" alwaysOpen>
           
-          {/* III. SEGUIMIENTO (Oculto por defecto) */}
           <Accordion.Item eventKey="0" className="border-0 rounded-4 mb-3">
             <Accordion.Header>
               <h6 className="fw-bold text-uppercase mb-0" style={{ color: 'var(--color-principal, #006A38)' }}>
@@ -174,7 +271,7 @@ const NuevaFichaSocial = () => {
               </h6>
             </Accordion.Header>
             <Accordion.Body className="bg-white">
-              <div className="mb-3 p-3 bg-light rounded">
+              <div className="mb-3 p-3 bg-light rounded border">
                 <Form.Label className="small fw-bold text-muted">Llamado Telefónico</Form.Label>
                 <Row className="g-2">
                   <Col md={2}><Form.Control name="llamadasCantidad" placeholder="Cantidad" onChange={handleChange} /></Col>
@@ -182,7 +279,7 @@ const NuevaFichaSocial = () => {
                   <Col md={7}><Form.Control name="llamadasResultado" placeholder="Resultado obtenido" onChange={handleChange} /></Col>
                 </Row>
               </div>
-              <div className="mb-3 p-3 bg-light rounded">
+              <div className="mb-3 p-3 bg-light rounded border">
                 <Form.Label className="small fw-bold text-muted">Visita Domiciliaria</Form.Label>
                 <Row className="g-2">
                   <Col md={2}><Form.Control name="visitasCantidad" placeholder="Cantidad" onChange={handleChange} /></Col>
@@ -190,7 +287,7 @@ const NuevaFichaSocial = () => {
                   <Col md={7}><Form.Control name="visitasResultado" placeholder="Resultado obtenido" onChange={handleChange} /></Col>
                 </Row>
               </div>
-              <div className="p-3 bg-light rounded">
+              <div className="p-3 bg-light rounded border">
                 <Form.Label className="small fw-bold text-muted">Reunión por Teams</Form.Label>
                 <Row className="g-2">
                   <Col md={2}><Form.Control name="teamsCantidad" placeholder="Cantidad" onChange={handleChange} /></Col>
@@ -201,7 +298,6 @@ const NuevaFichaSocial = () => {
             </Accordion.Body>
           </Accordion.Item>
 
-          {/* IV. CIERRE (Oculto por defecto) */}
           <Accordion.Item eventKey="1" className="border-0 rounded-4">
             <Accordion.Header>
               <h6 className="fw-bold text-uppercase mb-0" style={{ color: 'var(--color-principal, #006A38)' }}>
@@ -210,10 +306,22 @@ const NuevaFichaSocial = () => {
             </Accordion.Header>
             <Accordion.Body className="bg-white">
               <Row className="g-3">
-                <Col md={6}><Form.Control name="lugarDerivacion" placeholder="Nombre del lugar de derivación" onChange={handleChange} /></Col>
-                <Col md={6}><Form.Control name="profesionalDeriva" placeholder="Profesional donde deriva" onChange={handleChange} /></Col>
-                <Col md={8}><Form.Control name="causaCierre" placeholder="Motivo y/o causa del cierre de la intervención" onChange={handleChange} /></Col>
-                <Col md={4}><Form.Control type="date" name="fechaCierre" title="Fecha cierre de atención" onChange={handleChange} /></Col>
+                <Col md={6}>
+                  <Form.Label className="small fw-bold text-muted">Lugar de Derivación</Form.Label>
+                  <Form.Control name="lugarDerivacion" placeholder="Especifique institución o lugar" onChange={handleChange} />
+                </Col>
+                <Col md={6}>
+                  <Form.Label className="small fw-bold text-muted">Profesional que Deriva</Form.Label>
+                  <Form.Control name="profesionalDeriva" placeholder="Nombre del profesional" onChange={handleChange} />
+                </Col>
+                <Col md={8}>
+                  <Form.Label className="small fw-bold text-muted">Causa de Cierre</Form.Label>
+                  <Form.Control name="causaCierre" placeholder="Motivo y/o causa del cierre de la intervención" onChange={handleChange} />
+                </Col>
+                <Col md={4}>
+                  <Form.Label className="small fw-bold text-muted">Fecha de Cierre</Form.Label>
+                  <Form.Control type="date" name="fechaCierre" title="Fecha cierre de atención" onChange={handleChange} />
+                </Col>
               </Row>
             </Accordion.Body>
           </Accordion.Item>
@@ -223,7 +331,7 @@ const NuevaFichaSocial = () => {
         <div className="d-flex justify-content-end gap-3 pb-5">
           <Button variant="outline-secondary" size="lg" onClick={() => navigate('/dashboard/fichas')}>Cancelar</Button>
           <Button type="submit" size="lg" style={{ backgroundColor: 'var(--color-principal, #006A38)', border: 'none' }} disabled={saving}>
-            {saving ? 'Guardando...' : 'Guardar Ficha Social'}
+            {saving ? 'Guardando BD...' : 'Guardar Ficha Social'}
           </Button>
         </div>
 
