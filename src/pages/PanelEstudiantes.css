@@ -1,217 +1,222 @@
-.estudiante-wrapper {
-  --bg-color: #f4f7f5;
-  --card-bg: #ffffff;
-  --text-primary: #2d3748;
-  --text-secondary: #718096;
-  --border-color: #edf2f7;
+/* Variables globales para mantener consistencia corporativa de la Clinica Socio Juridica */
+:root {
   --color-principal: #006A38;
   --color-secundario: #78BE20;
-  
-  background-color: var(--bg-color);
-  color: var(--text-primary);
-  min-height: 100vh;
-  padding: 2rem 3rem;
-  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-  overflow-x: hidden;
-  display: flex;
-  flex-direction: column;
+  --bg-color: #f4f7f5;
+  --card-bg: #ffffff;
+  --text-primary: #212529;
+  --text-secondary: #6c757d;
+  --border-color: #e2e8f0;
+  --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.08);
+  --shadow-lg: 0 15px 25px rgba(0, 0, 0, 0.15);
 }
 
-/* Modo Noche */
+/* Variables para el Modo Oscuro */
 .estudiante-wrapper.dark-mode {
   --bg-color: #0f172a;
   --card-bg: #1e293b;
   --text-primary: #f8fafc;
   --text-secondary: #94a3b8;
   --border-color: #334155;
+  --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.2);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.3);
+  --shadow-lg: 0 15px 30px rgba(0, 0, 0, 0.4);
 }
 
+/* Contenedor Principal */
+.estudiante-wrapper {
+  background-color: var(--bg-color);
+  min-height: 100vh;
+  padding: 2rem 1.5rem;
+  transition: background-color 0.3s ease, color 0.3s ease;
+  color: var(--text-primary);
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+}
+
+/* Tarjetas (Cards) */
 .panel-card {
   background-color: var(--card-bg);
+  border-radius: 1.25rem;
+  padding: 1.75rem;
+  box-shadow: var(--shadow-sm);
   border: 1px solid var(--border-color);
-  border-radius: 20px;
-  padding: 1.8rem;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.03);
-  height: 100%;
   transition: transform 0.3s ease, box-shadow 0.3s ease;
 }
 
 .panel-card:hover {
-  box-shadow: 0 15px 35px rgba(0, 106, 56, 0.08);
+  box-shadow: var(--shadow-md);
 }
 
-.estudiante-wrapper.dark-mode .panel-card {
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+/* FIX: Z-Index máximo para Dropdowns (Campanita de Avisos) */
+.dropdown-menu {
+  z-index: 10000 !important;
+  border-radius: 1.25rem !important;
+  border: 1px solid var(--border-color) !important;
+  box-shadow: var(--shadow-lg) !important;
+  padding: 0;
+  overflow: hidden;
 }
 
-/* Columna Izquierda: Perfil y Soporte */
-.profile-section {
+.dropdown-item {
+  transition: background-color 0.2s ease, padding-left 0.2s ease;
+}
+
+.hover-light:hover {
+  background-color: rgba(0, 106, 56, 0.05) !important;
+  padding-left: 1.25rem !important;
+}
+
+.hover-dark:hover {
+  background-color: #334155 !important;
+  padding-left: 1.25rem !important;
+}
+
+/* Botones de acción rápidos */
+.action-btn {
   display: flex;
   flex-direction: column;
-  gap: 1.5rem;
-  background: linear-gradient(180deg, var(--card-bg) 0%, rgba(120, 190, 32, 0.02) 100%);
-}
-
-.profile-header h4 {
-  color: var(--color-principal);
-  font-weight: 800;
-  letter-spacing: -0.5px;
-}
-
-.support-section {
-  background: linear-gradient(135deg, rgba(0, 106, 56, 0.05), rgba(120, 190, 32, 0.1));
-  border-radius: 16px;
-  padding: 1.5rem;
-  margin-top: auto;
-  border: 1px solid rgba(120, 190, 32, 0.2);
-}
-
-.clock-display {
-  font-size: 2.5rem;
-  font-weight: 800;
-  color: var(--color-principal);
-  font-family: 'Inter', sans-serif;
-  text-align: center;
-  margin-bottom: 0.5rem;
-  letter-spacing: -1px;
-}
-
-.estudiante-wrapper.dark-mode .clock-display {
-  color: var(--color-secundario);
-}
-
-/* Columna Central: Botones y Analíticas */
-.action-btn {
-  background-color: var(--card-bg);
-  color: var(--text-primary);
-  border: 2px solid var(--border-color);
-  border-radius: 16px;
-  padding: 1.5rem;
-  font-weight: 700;
-  font-size: 1.1rem;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  width: 100%;
-  text-align: center;
-  display: flex;
   align-items: center;
   justify-content: center;
-  gap: 10px;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 1.2rem;
+  background-color: var(--card-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 1rem;
+  color: var(--text-primary);
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: var(--shadow-sm);
 }
 
 .action-btn:hover {
-  border-color: var(--color-secundario);
-  color: var(--color-principal);
-  transform: translateY(-5px);
-  box-shadow: 0 10px 20px rgba(120, 190, 32, 0.15);
+  background-color: var(--color-principal);
+  color: #ffffff;
+  transform: translateY(-3px);
+  box-shadow: var(--shadow-md);
 }
 
+.estudiante-wrapper.dark-mode .action-btn:hover {
+  background-color: var(--color-secundario);
+  color: #0f172a;
+}
+
+/* Cajas Analíticas */
 .analytics-box {
-  text-align: center;
-  padding: 1.5rem 1rem;
   background-color: var(--bg-color);
-  border-radius: 16px;
   border: 1px solid var(--border-color);
-  transition: transform 0.3s ease;
+  border-radius: 1rem;
+  padding: 1.25rem 1rem;
+  text-align: center;
+  transition: transform 0.2s ease;
 }
 
 .analytics-box:hover {
-  transform: translateY(-3px);
+  transform: translateY(-2px);
 }
 
 .analytics-value {
   font-size: 2.2rem;
   font-weight: 800;
   color: var(--color-principal);
-  line-height: 1;
-  margin-bottom: 0.5rem;
+  line-height: 1.1;
+  margin-bottom: 0.25rem;
 }
 
 .estudiante-wrapper.dark-mode .analytics-value {
   color: var(--color-secundario);
 }
 
-/* Columna Derecha: Avisos y Participantes */
-.avisos-box {
-  background: linear-gradient(135deg, rgba(255, 193, 7, 0.1), rgba(255, 152, 0, 0.05));
-  border-left: 4px solid #ffc107;
-  padding: 1.2rem;
-  border-radius: 12px;
-  margin-bottom: 1.5rem;
+/* Personalización del Calendario (React-Calendar) */
+.react-calendar {
+  width: 100% !important;
+  background-color: var(--card-bg) !important;
+  border: 1px solid var(--border-color) !important;
+  font-family: inherit !important;
+  border-radius: 1rem !important;
+  padding: 1rem;
+  box-shadow: none !important;
 }
 
-.participantes-list {
-  max-height: 300px;
-  overflow-y: auto;
-  padding-right: 10px;
+.react-calendar__tile--active,
+.react-calendar__tile--active:enabled:hover,
+.react-calendar__tile--active:enabled:focus {
+  background-color: var(--color-principal) !important;
+  border-radius: 0.5rem;
+  color: white !important;
+  font-weight: bold;
 }
 
-.participante-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 1rem 0;
-  border-bottom: 1px solid var(--border-color);
-  transition: background-color 0.2s ease;
+.react-calendar__tile:enabled:hover,
+.react-calendar__tile:enabled:focus {
+  background-color: rgba(0, 106, 56, 0.1) !important;
+  border-radius: 0.5rem;
 }
 
-.participante-item:hover {
-  background-color: rgba(0,0,0,0.02);
-  border-radius: 8px;
-  padding: 1rem 10px;
+.estudiante-wrapper.dark-mode .react-calendar {
+  color: var(--text-primary) !important;
 }
 
-.participante-item:last-child {
-  border-bottom: none;
+.estudiante-wrapper.dark-mode .react-calendar__navigation button:enabled:hover,
+.estudiante-wrapper.dark-mode .react-calendar__navigation button:enabled:focus {
+  background-color: var(--border-color) !important;
+  border-radius: 0.5rem;
 }
 
-.logo-container {
-  text-align: center;
-  margin-top: auto;
-  padding-top: 2rem;
+.estudiante-wrapper.dark-mode .react-calendar__tile:enabled:hover {
+  background-color: rgba(120, 190, 32, 0.2) !important;
 }
 
-.logo-container img {
-  max-width: 140px;
-  opacity: 0.9;
-  filter: drop-shadow(0 4px 6px rgba(0,0,0,0.05));
+/* Animaciones de Carga en Cascada */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
-/* Scrollbar personalizada */
-.participantes-list::-webkit-scrollbar {
+.animate-up {
+  animation: fadeInUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  opacity: 0;
+}
+
+.delay-1 {
+  animation-delay: 0.1s;
+}
+
+.delay-2 {
+  animation-delay: 0.2s;
+}
+
+.delay-3 {
+  animation-delay: 0.3s;
+}
+
+/* Scrollbars Minimalistas */
+::-webkit-scrollbar {
   width: 6px;
 }
-.participantes-list::-webkit-scrollbar-track {
+
+::-webkit-scrollbar-track {
   background: transparent;
 }
-.participantes-list::-webkit-scrollbar-thumb {
-  background: var(--border-color);
+
+::-webkit-scrollbar-thumb {
+  background-color: rgba(0, 0, 0, 0.15);
   border-radius: 10px;
 }
 
-/* ==========================================
-   ANIMACIONES EN CASCADA
-   ========================================== */
-.animate-up {
-  opacity: 0;
-  animation: fadeUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+.estudiante-wrapper.dark-mode ::-webkit-scrollbar-thumb {
+  background-color: rgba(255, 255, 255, 0.2);
 }
 
-.delay-1 { animation-delay: 0.1s; }
-.delay-2 { animation-delay: 0.25s; }
-.delay-3 { animation-delay: 0.4s; }
-
-@keyframes fadeUp {
-  from { opacity: 0; transform: translateY(30px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
-/* Ajustes para react-calendar */
-.react-calendar {
-  border: none !important;
-  font-family: inherit !important;
-  border-radius: 12px;
-}
-.react-calendar__tile--active {
-  background: var(--color-principal) !important;
-  border-radius: 8px;
+::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(0, 0, 0, 0.3);
 }
