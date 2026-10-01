@@ -21,11 +21,12 @@ const ListaFichas = () => {
   const fetchFichas = async () => {
     try {
       // Hacemos las 4 consultas en paralelo
-      const [socialesRes, juridicasRes, recopilacionRes, visitasRes] = await Promise.all([
+      const [socialesRes, juridicasRes, recopilacionRes, visitasRes, intervencionRes] = await Promise.all([
         supabase.from('social_records').select('id, fecha_creacion, fecha_cierre, participants(rut, nombre, apellido), perfiles(nombre, rol)'),
         supabase.from('legal_records').select('id, created_at, fecha_cierre, participants(rut, nombre, apellido), perfiles(nombre, rol)'),
         supabase.from('recopilacion_records').select('id, created_at, participants(rut, nombre, apellido), perfiles(nombre, rol)'),
-        supabase.from('visitas_records').select('id, created_at, participants(rut, nombre, apellido), perfiles(nombre, rol)')
+        supabase.from('visitas_records').select('id, created_at, participants(rut, nombre, apellido), perfiles(nombre, rol)'),
+        supabase.from('intervencion_records').select('id, created_at, participants(rut, nombre, apellido), perfiles(nombre, rol)') // NUEVO
       ]);
 
       if (socialesRes.error) console.error('Error sociales:', socialesRes.error.message);
@@ -47,7 +48,8 @@ const ListaFichas = () => {
         ...formatearData(socialesRes.data, 'Social', 'Atención Social', 'fecha_creacion'),
         ...formatearData(juridicasRes.data, 'Jurídica', 'Caso Jurídico', 'created_at'),
         ...formatearData(recopilacionRes.data, 'Social', 'Recopilación Info.', 'created_at'),
-        ...formatearData(visitasRes.data, 'Social', 'Visita Domiciliaria', 'created_at')
+        ...formatearData(visitasRes.data, 'Social', 'Visita Domiciliaria', 'created_at'),
+        ...formatearData(intervencionRes.data, 'Social', 'Intervención', 'created_at') // NUEVO
       ].sort((a, b) => b.timestamp - a.timestamp);
 
       setFichas(combinadas);
@@ -242,9 +244,10 @@ const ListaFichas = () => {
 
             <Col md={6}>
               <Button
-                variant="outline-secondary"
-                className="w-100 h-100 p-3 text-start fw-bold shadow-sm d-flex flex-column gap-2 opacity-75"
-                onClick={() => alert('Módulo en construcción: Pronto podrás registrar Intervenciones.')}
+                variant="outline-success"
+                className="w-100 h-100 p-3 text-start fw-bold shadow-sm d-flex flex-column gap-2"
+                onClick={() => navigate('/dashboard/fichas/intervencion')}
+                style={{ borderWidth: '2px' }}
               >
                 <div className="d-flex align-items-center gap-2">
                   <span className="fs-3">🤝</span>
@@ -327,6 +330,7 @@ const ListaFichas = () => {
               if (fichaSeleccionada?.tipoEspecifico === 'Atención Social') rutaTipo = 'social';
               else if (fichaSeleccionada?.tipoEspecifico === 'Visita Domiciliaria') rutaTipo = 'visita';
               else if (fichaSeleccionada?.tipoEspecifico === 'Recopilación Info.') rutaTipo = 'recopilacion';
+              else if (fichaSeleccionada?.tipoEspecifico === 'Intervención') rutaTipo = 'intervencion';
               else rutaTipo = 'juridica';
 
               navigate(`/dashboard/fichas/ver/${rutaTipo}/${fichaSeleccionada.id}`);
