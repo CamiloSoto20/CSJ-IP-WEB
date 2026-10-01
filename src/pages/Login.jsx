@@ -110,7 +110,14 @@ const handleLogin = async (e) => {
           </Form.Group>
 
           <div className="text-end mb-4">
-            <a href="#" className="forgot-password" onClick={(e) => e.preventDefault()}>
+            <a 
+              href="#" 
+              className="forgot-password" 
+              onClick={(e) => {
+                e.preventDefault();
+                navigate('/recuperar-password');
+              }}
+            >
               ¿Olvidaste tu contraseña?
             </a>
           </div>
