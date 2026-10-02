@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Container, Table, Button, Spinner, Badge, Card, Modal, Row, Col } from 'react-bootstrap';
+import { Container, Table, Button, Spinner, Card, Modal, Row, Col } from 'react-bootstrap';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
@@ -86,7 +86,12 @@ const FichaEstudiantes = () => {
               Mis Fichas de Intervención
             </h2>
             <div className="d-flex gap-2">
-              <Button variant="outline-secondary" className="fw-bold" onClick={() => alert('Módulo de ficha jurídica en construcción')}>
+              {/* BOTÓN FICHA JURÍDICA HABILITADO */}
+              <Button 
+                variant="outline-info" 
+                className="fw-bold text-dark border-2" 
+                onClick={() => navigate('/panel-estudiante/fichas/nueva-juridica')}
+              >
                 + Ficha Jurídica
               </Button>
               <Button style={{ backgroundColor: 'var(--color-principal)', border: 'none' }} className="fw-bold" onClick={() => setShowTiposFicha(true)}>
@@ -204,6 +209,8 @@ const FichaEstudiantes = () => {
                 if (fichaSeleccionada?.tipoEspecifico === 'Visita Domiciliaria') rutaTipo = 'visita';
                 if (fichaSeleccionada?.tipoEspecifico === 'Recopilación Info.') rutaTipo = 'recopilacion';
                 if (fichaSeleccionada?.tipoEspecifico === 'Intervención') rutaTipo = 'intervencion';
+                if (fichaSeleccionada?.tipoEspecifico === 'Caso Jurídico') rutaTipo = 'juridica'; // <-- AÑADIDO
+                
                 navigate(`/panel-estudiante/fichas/ver/${rutaTipo}/${fichaSeleccionada.id}`);
               }}
             >
