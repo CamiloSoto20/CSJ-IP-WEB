@@ -5,23 +5,50 @@ const AuthContext = createContext({});
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
+  const [role, setRole] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null);
-      setLoading(false);
-    });
+    const fetchSessionAndRole = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      const currentUser = session?.user ?? null;
+      setUser(currentUser);
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null);
+      if (currentUser) {
+        const { data } = await supabase
+          .from('perfiles')
+          .select('rol')
+          .eq('id', currentUser.id)
+          .single();
+        setRole(data?.rol ?? null);
+      } else {
+        setRole(null);
+      }
+      setLoading(false);
+    };
+
+    fetchSessionAndRole();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      const currentUser = session?.user ?? null;
+      setUser(currentUser);
+      if (currentUser) {
+        const { data } = await supabase
+          .from('perfiles')
+          .select('rol')
+          .eq('id', currentUser.id)
+          .single();
+        setRole(data?.rol ?? null);
+      } else {
+        setRole(null);
+      }
     });
 
     return () => subscription.unsubscribe();
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, loading }}>
+    <AuthContext.Provider value={{ user, role, loading }}>
       {!loading && children}
     </AuthContext.Provider>
   );

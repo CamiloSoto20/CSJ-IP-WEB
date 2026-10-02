@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import PublicLayout from './layouts/PublicLayout';
 import Home from './pages/Home';
 import Login from './pages/Login';
+
 import Dashboard from './pages/Dashboard';
 import ProtectedRoute from './components/ProtectedRoute';
 import DashboardLayout from './layouts/Dashboard';
@@ -11,6 +12,7 @@ import CharaDetalle from './pages/CharlaDetalle';
 import Informacion from './pages/Informacion';
 import ListaFichas from './pages/coordinadora/ListaFichas';
 import NuevaFichaSocial from './pages/coordinadora/fichas/NuevaFichaSocial';
+import RecuperarPassword from './pages/recuperar/RecuperarPassword';
 
 // Nuevas importaciones de Coordinadora
 import Estudiantes from './pages/coordinadora/Estudiantes';
@@ -19,6 +21,7 @@ import FichaRecopilacion from './pages/coordinadora/fichas/FichaRecopilacion';
 import FichaVisitaDomiciliaria from './pages/coordinadora/fichas/FichaVisitaDomiciliaria';
 import VerFicha from './pages/coordinadora/fichas/VerFicha';
 import FichaIntervencion from './pages/coordinadora/fichas/FichaIntervencion';
+import NuevaFichaJuridica from './pages/coordinadora/fichas/NuevaFichaJuridica';
 
 // Módulo Estudiantes
 import PanelEstudiantes from './pages/PanelEstudiantes';
@@ -40,13 +43,21 @@ function App() {
         </Route>
 
         <Route path="/login" element={<Login />} />
+        <Route path="/recuperar-password" element={<RecuperarPassword />} />
 
         {/* Rutas Protegidas - ESTUDIANTES (Vistas independientes sin Sidebar de Coordinadora) */}
         <Route path="/panel-estudiante" element={<ProtectedRoute><PanelEstudiantes /></ProtectedRoute>} />
         <Route path="/panel-estudiante/fichas" element={<ProtectedRoute><FichasEstudiante /></ProtectedRoute>} />
+        <Route path="/panel-estudiante/fichas/nueva-social" element={<ProtectedRoute><NuevaFichaSocial /></ProtectedRoute>} />
+        <Route path="/panel-estudiante/fichas/recopilacion" element={<ProtectedRoute><FichaRecopilacion /></ProtectedRoute>} />
+        <Route path="/panel-estudiante/fichas/visita" element={<ProtectedRoute><FichaVisitaDomiciliaria /></ProtectedRoute>} />
+        <Route path="/panel-estudiante/fichas/intervencion" element={<ProtectedRoute><FichaIntervencion /></ProtectedRoute>} /> 
+        <Route path="/panel-estudiante/fichas/nueva-juridica" element={<ProtectedRoute><NuevaFichaJuridica /></ProtectedRoute>} />
+        <Route path="/panel-estudiante/fichas/ver/:tipo/:id" element={<ProtectedRoute><VerFicha /></ProtectedRoute>} />
         <Route path="/panel-estudiante/citas" element={<ProtectedRoute><CitasEstudiante /></ProtectedRoute>} />
         <Route path="/panel-estudiante/charlas" element={<ProtectedRoute><CharlasEstudiante /></ProtectedRoute>} />
         <Route path="/panel-estudiante/informacion" element={<ProtectedRoute><InformacionEstudiante /></ProtectedRoute>} />
+        
 
         {/* Rutas Protegidas - SOPORTE TI (Vista independiente) */}
         <Route path="/panel-soporte" element={<ProtectedRoute><PanelSoporte /></ProtectedRoute>} />
@@ -63,6 +74,7 @@ function App() {
           <Route path="/dashboard/fichas/recopilacion" element={<FichaRecopilacion />} />
           <Route path="/dashboard/fichas/visita" element={<FichaVisitaDomiciliaria />} />
           <Route path="/dashboard/fichas/intervencion" element={<FichaIntervencion />} />
+          <Route path="/dashboard/fichas/nueva-juridica" element={<NuevaFichaJuridica />} />
           <Route path="/dashboard/fichas/ver/:tipo/:id" element={<VerFicha />} />
 
           {/* Rutas del Directorio de Estudiantes */}
