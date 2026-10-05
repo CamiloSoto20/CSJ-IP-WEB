@@ -5,6 +5,7 @@ import Calendar from 'react-calendar';
 import 'react-calendar/dist/Calendar.css'; 
 import { supabase } from '../lib/supabase';
 import './PanelEstudiantes.css';
+import logoCSJ from '../assets/LOGO_CSJ.png';
 
 const PanelEstudiante = () => {
   const [time, setTime] = useState(new Date());
@@ -244,10 +245,10 @@ const PanelEstudiante = () => {
 
         <div className="d-none d-lg-flex justify-content-center flex-grow-1 px-4">
           <img 
-            src="/assets/banner-encabezado.png" 
+            src={logoCSJ} 
             alt="Banner Estudiante"
             className="img-fluid"
-            style={{ maxHeight: '60px', objectFit: 'contain' }}
+            style={{ maxHeight: '65px', objectFit: 'contain' }}
             onError={(e) => e.target.style.display = 'none'}
           />
         </div>
