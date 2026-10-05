@@ -43,11 +43,13 @@ const InformacionEstudiante = () => {
     e.preventDefault();
     setSaving(true);
     try {
+      // Guardamos la fuente y el autor integrados en contenido_completo
+      const contenidoCombinado = `Autor: ${formData.autor}\nFuente original: ${formData.fuente}`;
+
       const { error } = await supabase.from('information').insert([{
         titulo: formData.titulo,
         descripcion_corta: formData.descripcion_corta,
-        fuente: formData.fuente,
-        autor_nombre: formData.autor,
+        contenido_completo: contenidoCombinado,
         categoria: 'Aporte Estudiante',
         author_id: user?.id || null
       }]);
@@ -118,8 +120,9 @@ const InformacionEstudiante = () => {
                       
                       {item.categoria === 'Aporte Estudiante' && (
                         <div className="mt-auto pt-3 border-top">
-                          <p className="small text-muted mb-1"><span className="fw-bold">Autor:</span> {item.autor_nombre || 'No especificado'}</p>
-                          <p className="small text-muted mb-0"><span className="fw-bold">Fuente:</span> {item.fuente || 'Propia'}</p>
+                          <p className="small text-muted mb-0" style={{ whiteSpace: 'pre-wrap' }}>
+                            {item.contenido_completo || 'Aporte de la comunidad'}
+                          </p>
                         </div>
                       )}
                     </Card.Body>

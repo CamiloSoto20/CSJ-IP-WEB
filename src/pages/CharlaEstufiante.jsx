@@ -12,11 +12,11 @@ const CharlasEstudiante = () => {
   const [saving, setSaving] = useState(false);
   const [showModal, setShowModal] = useState(false);
 
+  // Mapeado a los nombres reales de tu BD
   const [formData, setFormData] = useState({
-    nombre: '', descripcion: '', fecha: '', hora: '', lugar: ''
+    titulo: '', descripcion: '', fecha: '', hora: '', ubicacion: ''
   });
   const [afiche, setAfiche] = useState(null);
-  const [archivoCharla, setArchivoCharla] = useState(null);
 
   useEffect(() => {
     fetchCharlas();
@@ -45,7 +45,6 @@ const CharlasEstudiante = () => {
     
     try {
       let aficheUrl = null;
-      let charlaUrl = null;
 
       // Subir Afiche
       if (afiche) {
@@ -57,34 +56,25 @@ const CharlasEstudiante = () => {
         }
       }
 
-      // Subir Archivo de la Charla
-      if (archivoCharla) {
-        const fileExt = archivoCharla.name.split('.').pop();
-        const fileName = `charla_${Date.now()}.${fileExt}`;
-        const { error: errCharla } = await supabase.storage.from('charlas').upload(fileName, archivoCharla);
-        if (!errCharla) {
-          charlaUrl = supabase.storage.from('charlas').getPublicUrl(fileName).data.publicUrl;
-        }
-      }
-
+      // Insertar calzando con las columnas exactas de Supabase
       const { error } = await supabase.from('talks').insert([{
-        nombre: formData.nombre,
+        titulo: formData.titulo,
         descripcion: formData.descripcion,
         fecha: formData.fecha,
         hora: formData.hora,
-        lugar: formData.lugar,
-        afiche_url: aficheUrl,
-        archivo_url: charlaUrl,
-        estudiante_id: user?.id
+        ubicacion: formData.ubicacion,
+        imagen_url: aficheUrl,
+        cupos_totales: 30, // Agregado para que no de error
+        cupos_disponibles: 30,
+        estado: 'Disponible'
       }]);
 
       if (error) throw error;
 
       alert('Charla registrada exitosamente.');
       setShowModal(false);
-      setFormData({ nombre: '', descripcion: '', fecha: '', hora: '', lugar: '' });
+      setFormData({ titulo: '', descripcion: '', fecha: '', hora: '', ubicacion: '' });
       setAfiche(null);
-      setArchivoCharla(null);
       fetchCharlas();
     } catch (error) {
       alert('Error al guardar la charla: ' + error.message);
@@ -118,19 +108,14 @@ const CharlasEstudiante = () => {
           ) : charlas.map(charla => (
             <Col md={6} lg={4} key={charla.id}>
               <Card className="border-0 shadow-sm h-100 rounded-4 overflow-hidden">
-                {charla.afiche_url && (
-                  <div style={{ height: '200px', backgroundImage: `url(${charla.afiche_url})`, backgroundSize: 'cover', backgroundPosition: 'center' }} />
+                {charla.imagen_url && (
+                  <div style={{ height: '200px', backgroundImage: `url(${charla.imagen_url})`, backgroundSize: 'cover', backgroundPosition: 'center' }} />
                 )}
                 <Card.Body className="d-flex flex-column p-4">
                   <Badge bg="success" className="mb-2 align-self-start">{charla.fecha} | {charla.hora}</Badge>
-                  <h5 className="fw-bold mb-2">{charla.nombre}</h5>
-                  <p className="small text-muted mb-3"><span className="fw-bold text-dark">📍 Lugar:</span> {charla.lugar}</p>
+                  <h5 className="fw-bold mb-2">{charla.titulo}</h5>
+                  <p className="small text-muted mb-3"><span className="fw-bold text-dark">📍 Lugar:</span> {charla.ubicacion}</p>
                   <p className="text-secondary small mb-4 flex-grow-1">{charla.descripcion}</p>
-                  {charla.archivo_url && (
-                    <Button variant="outline-primary" size="sm" className="w-100 fw-bold rounded-pill" onClick={() => window.open(charla.archivo_url, '_blank')}>
-                      📥 Descargar Material
-                    </Button>
-                  )}
                 </Card.Body>
               </Card>
             </Col>
@@ -147,7 +132,7 @@ const CharlasEstudiante = () => {
           <Form onSubmit={handleSubmit}>
             <Form.Group className="mb-3">
               <Form.Label className="small fw-bold">Nombre de la Charla</Form.Label>
-              <Form.Control name="nombre" value={formData.nombre} onChange={handleChange} required placeholder="Ej: Capacitación en Derecho de Familia..." />
+              <Form.Control name="titulo" value={formData.titulo} onChange={handleChange} required placeholder="Ej: Capacitación en Derecho de Familia..." />
             </Form.Group>
             
             <Form.Group className="mb-3">
@@ -171,22 +156,16 @@ const CharlasEstudiante = () => {
               <Col md={4}>
                 <Form.Group>
                   <Form.Label className="small fw-bold">Lugar / Ubicación</Form.Label>
-                  <Form.Control name="lugar" value={formData.lugar} onChange={handleChange} required placeholder="Ej: Sala 302, Teams..." />
+                  <Form.Control name="ubicacion" value={formData.ubicacion} onChange={handleChange} required placeholder="Ej: Sala 302, Teams..." />
                 </Form.Group>
               </Col>
             </Row>
 
             <Row className="mb-4">
-              <Col md={6}>
+              <Col md={12}>
                 <Form.Group>
-                  <Form.Label className="small fw-bold">Afiche (Imagen/PDF)</Form.Label>
-                  <Form.Control type="file" accept="image/*,.pdf" onChange={(e) => setAfiche(e.target.files[0])} />
-                </Form.Group>
-              </Col>
-              <Col md={6}>
-                <Form.Group>
-                  <Form.Label className="small fw-bold">Archivo de la Charla (PPT, PDF, DOCX)</Form.Label>
-                  <Form.Control type="file" accept=".pdf,.doc,.docx,.ppt,.pptx" onChange={(e) => setArchivoCharla(e.target.files[0])} />
+                  <Form.Label className="small fw-bold">Afiche (Imagen)</Form.Label>
+                  <Form.Control type="file" accept="image/*" onChange={(e) => setAfiche(e.target.files[0])} />
                 </Form.Group>
               </Col>
             </Row>
