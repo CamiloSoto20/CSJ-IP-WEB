@@ -69,15 +69,16 @@ const Informacion = () => {
       const payload = {
         titulo: formData.titulo,
         descripcion_corta: formData.descripcion_corta,
-        contenido_completo: formData.contenido_completo,
         categoria: formData.categoria,
         author_id: user?.id || null 
       };
 
-      // Si es Noticia, añadimos los campos adicionales
+      // Si es Noticia, guardamos la fuente y el autor integrados en contenido_completo
       if (formData.categoria === 'Noticia') {
-        payload.fuente = formData.fuente;
-        payload.autor_nombre = formData.autor;
+        const contenidoCombinado = `Autor: ${formData.autor}\nFuente original: ${formData.fuente}`;
+        payload.contenido_completo = contenidoCombinado;
+      } else {
+          payload.contenido_completo = formData.contenido_completo;
       }
 
       const { error } = await supabase.from('information').insert([payload]);
