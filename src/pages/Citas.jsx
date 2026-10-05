@@ -4,48 +4,83 @@ import { supabase } from '../lib/supabase';
 
 const Citas = () => {
   const [citas, setCitas] = useState([]);
+  const [estudiantes, setEstudiantes] = useState([]);
   const [loading, setLoading] = useState(true);
   
-  // Estados para reagendamiento
+  // Modales
   const [showReagendar, setShowReagendar] = useState(false);
+  const [showAsignar, setShowAsignar] = useState(false);
+  
   const [citaSeleccionada, setCitaSeleccionada] = useState(null);
+  
+  // Estados Reagendar
   const [nuevaFecha, setNuevaFecha] = useState('');
   const [nuevaHora, setNuevaHora] = useState('');
-  const [savingReagendamiento, setSavingReagendamiento] = useState(false);
+  
+  // Estados Asignación
+  const [estudianteId, setEstudianteId] = useState('');
+  const [saving, setSaving] = useState(false);
 
-  const fetchCitas = async () => {
+  const fetchCitasYEstudiantes = async () => {
     try {
-      const { data, error } = await supabase
-        .from('appointments')
-        .select('*')
-        .order('fecha_cita', { ascending: true })
-        .order('hora_cita', { ascending: true });
+      const [citasRes, estRes] = await Promise.all([
+        supabase.from('appointments').select('*, perfiles(nombre)').order('fecha_cita', { ascending: true }).order('hora_cita', { ascending: true }),
+        supabase.from('perfiles').select('id, nombre').eq('rol', 'estudiante')
+      ]);
 
-      if (error) throw error;
-      setCitas(data || []);
+      if (citasRes.error) throw citasRes.error;
+      setCitas(citasRes.data || []);
+      setEstudiantes(estRes.data || []);
     } catch (error) {
-      console.error("Error al cargar citas:", error.message);
+      console.error("Error al cargar datos:", error.message);
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchCitas();
+    fetchCitasYEstudiantes();
+
+    // Tiempo real: Si alguien agenda en la web pública, aparece aquí al instante
+    const channel = supabase.channel('citas-coordinadora')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'appointments' }, () => {
+        fetchCitasYEstudiantes();
+      }).subscribe();
+
+    return () => supabase.removeChannel(channel);
   }, []);
 
   const handleStatusChange = async (id, newStatus) => {
     try {
-      const { error } = await supabase
-        .from('appointments')
-        .update({ estado: newStatus })
-        .eq('id', id);
+      const { error } = await supabase.from('appointments').update({ estado: newStatus }).eq('id', id);
+      if (error) throw error;
+      fetchCitasYEstudiantes();
+    } catch (error) {
+      alert("Error al actualizar el estado de la cita.");
+    }
+  };
+
+  const abrirAsignar = (cita) => {
+    setCitaSeleccionada(cita);
+    setEstudianteId(cita.estudiante_id || '');
+    setShowAsignar(true);
+  };
+
+  const handleAsignarSubmit = async (e) => {
+    e.preventDefault();
+    setSaving(true);
+    try {
+      const { error } = await supabase.from('appointments')
+        .update({ estudiante_id: estudianteId, estado: 'Confirmada' })
+        .eq('id', citaSeleccionada.id);
 
       if (error) throw error;
-      setCitas(citas.map(cita => cita.id === id ? { ...cita, estado: newStatus } : cita));
+      fetchCitasYEstudiantes();
+      setShowAsignar(false);
     } catch (error) {
-      console.error("Error al actualizar:", error.message);
-      alert("Error al actualizar el estado de la cita.");
+      alert("Error al asignar al estudiante.");
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -58,29 +93,19 @@ const Citas = () => {
 
   const handleReagendarSubmit = async (e) => {
     e.preventDefault();
-    setSavingReagendamiento(true);
+    setSaving(true);
     try {
-      const { error } = await supabase
-        .from('appointments')
-        .update({ 
-          fecha_cita: nuevaFecha, 
-          hora_cita: nuevaHora,
-          estado: 'Confirmada' // Asumimos que al reagendar queda confirmada
-        })
+      const { error } = await supabase.from('appointments')
+        .update({ fecha_cita: nuevaFecha, hora_cita: nuevaHora, estado: 'Confirmada' })
         .eq('id', citaSeleccionada.id);
 
       if (error) throw error;
-      
-      setCitas(citas.map(cita => 
-        cita.id === citaSeleccionada.id 
-          ? { ...cita, fecha_cita: nuevaFecha, hora_cita: nuevaHora, estado: 'Confirmada' } 
-          : cita
-      ));
+      fetchCitasYEstudiantes();
       setShowReagendar(false);
     } catch (error) {
       alert("Error al reagendar la cita.");
     } finally {
-      setSavingReagendamiento(false);
+      setSaving(false);
     }
   };
 
@@ -105,24 +130,21 @@ const Citas = () => {
       <div className="d-flex justify-content-between align-items-center mb-4">
         <div>
           <h3 className="fw-bold mb-1" style={{ color: 'var(--color-principal, #006A38)' }}>Gestión de Citas</h3>
-          <p className="text-muted mb-0">Administración de solicitudes de atención</p>
+          <p className="text-muted mb-0">Recepción en vivo y derivación a estudiantes</p>
         </div>
       </div>
 
       <Card className="border-0 shadow-sm">
         <Card.Body className="p-0">
           {loading ? (
-            <div className="text-center py-5">
-              <Spinner animation="border" style={{ color: 'var(--color-principal)' }} />
-              <p className="text-muted mt-2 mb-0">Cargando agenda...</p>
-            </div>
+            <div className="text-center py-5"><Spinner animation="border" style={{ color: 'var(--color-principal)' }} /></div>
           ) : (
             <Table hover responsive className="align-middle mb-0">
               <thead className="bg-light">
                 <tr>
                   <th className="text-muted border-0 py-3 px-4">FECHA Y HORA</th>
-                  <th className="text-muted border-0 py-3">PACIENTE (RUT)</th>
-                  <th className="text-muted border-0 py-3">CONTACTO</th>
+                  <th className="text-muted border-0 py-3">PACIENTE</th>
+                  <th className="text-muted border-0 py-3">ASIGNACIÓN</th>
                   <th className="text-muted border-0 py-3">ESTADO</th>
                   <th className="text-muted border-0 py-3 px-4 text-end">ACCIONES</th>
                 </tr>
@@ -136,11 +158,14 @@ const Citas = () => {
                     </td>
                     <td>
                       <span className="fw-bold d-block">{cita.nombre}</span>
-                      <span className="text-muted small">{cita.rut}</span>
+                      <span className="text-muted small">📞 {cita.telefono} | {cita.rut}</span>
                     </td>
                     <td>
-                      <span className="d-block text-dark">{cita.correo}</span>
-                      <span className="text-muted small">📞 {cita.telefono}</span>
+                      {cita.estudiante_id ? (
+                        <Badge bg="info" text="dark" className="px-2 py-1"><span className="fw-bold">A cargo:</span> {cita.perfiles?.nombre}</Badge>
+                      ) : (
+                        <span className="text-muted small italic">Sin asignar</span>
+                      )}
                     </td>
                     <td>
                       <Badge bg={getBadgeColor(cita.estado)} text={cita.estado === 'Pendiente' ? 'dark' : 'light'} className="px-2 py-1">
@@ -148,20 +173,13 @@ const Citas = () => {
                       </Badge>
                     </td>
                     <td className="px-4 text-end">
-                      <DropdownButton
-                        variant="outline-secondary"
-                        size="sm"
-                        title="Gestionar"
-                        align="end"
-                      >
-                        <Dropdown.Item onClick={() => handleStatusChange(cita.id, 'Confirmada')} disabled={cita.estado === 'Confirmada'} className="text-primary">
-                          Aprobar (Confirmar)
+                      <DropdownButton variant="outline-secondary" size="sm" title="Gestionar" align="end">
+                        <Dropdown.Item onClick={() => abrirAsignar(cita)} className="text-primary fw-bold">
+                          👤 Asignar a Estudiante
                         </Dropdown.Item>
-                        <Dropdown.Item onClick={() => abrirReagendar(cita)}>
-                          📅 Reagendar
-                        </Dropdown.Item>
+                        <Dropdown.Item onClick={() => abrirReagendar(cita)}>📅 Reagendar</Dropdown.Item>
                         <Dropdown.Item onClick={() => handleStatusChange(cita.id, 'Cancelada')} disabled={cita.estado === 'Cancelada'} className="text-danger">
-                          Rechazar / Cancelar
+                          Cancelar Cita
                         </Dropdown.Item>
                         <Dropdown.Divider />
                         <Dropdown.Item onClick={() => handleStatusChange(cita.id, 'Atendida')} disabled={cita.estado === 'Atendida'} className="text-success fw-bold">
@@ -174,18 +192,37 @@ const Citas = () => {
               </tbody>
             </Table>
           )}
-          {!loading && citas.length === 0 && (
-            <div className="text-center text-muted py-5">
-              No hay citas registradas en el sistema.
-            </div>
-          )}
         </Card.Body>
       </Card>
 
-      {/* Modal para Reagendar */}
+      {/* Modal Asignar Estudiante */}
+      <Modal show={showAsignar} onHide={() => setShowAsignar(false)} centered>
+        <Modal.Header closeButton>
+          <Modal.Title className="fw-bold" style={{ color: 'var(--color-principal)' }}>Asignar Caso a Estudiante</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          <Form onSubmit={handleAsignarSubmit}>
+            <p className="text-muted small mb-3">Paciente: <strong>{citaSeleccionada?.nombre}</strong></p>
+            <Form.Group className="mb-4">
+              <Form.Label className="fw-bold small">Seleccione al practicante</Form.Label>
+              <Form.Select value={estudianteId} onChange={(e) => setEstudianteId(e.target.value)} required>
+                <option value="">-- Elegir estudiante --</option>
+                {estudiantes.map(est => (
+                  <option key={est.id} value={est.id}>{est.nombre}</option>
+                ))}
+              </Form.Select>
+            </Form.Group>
+            <Button type="submit" className="w-100 fw-bold text-white" style={{ backgroundColor: 'var(--color-principal)', border: 'none' }} disabled={saving}>
+              {saving ? <Spinner size="sm" /> : 'Confirmar Asignación'}
+            </Button>
+          </Form>
+        </Modal.Body>
+      </Modal>
+
+      {/* Modal Reagendar */}
       <Modal show={showReagendar} onHide={() => setShowReagendar(false)} centered>
         <Modal.Header closeButton>
-          <Modal.Title className="fw-bold" style={{ color: 'var(--color-principal, #006A38)' }}>Reagendar Cita</Modal.Title>
+          <Modal.Title className="fw-bold" style={{ color: 'var(--color-principal)' }}>Reagendar Cita</Modal.Title>
         </Modal.Header>
         <Modal.Body>
           <Form onSubmit={handleReagendarSubmit}>
@@ -198,12 +235,9 @@ const Citas = () => {
               <Form.Label className="fw-bold small">Nueva Hora</Form.Label>
               <Form.Control type="time" value={nuevaHora} onChange={(e) => setNuevaHora(e.target.value)} required />
             </Form.Group>
-            <div className="d-flex justify-content-end gap-2">
-              <Button variant="outline-secondary" onClick={() => setShowReagendar(false)} disabled={savingReagendamiento}>Cancelar</Button>
-              <Button type="submit" style={{ backgroundColor: 'var(--color-principal)', border: 'none' }} disabled={savingReagendamiento}>
-                {savingReagendamiento ? <Spinner size="sm" /> : 'Confirmar Nueva Fecha'}
-              </Button>
-            </div>
+            <Button type="submit" className="w-100 fw-bold text-white" style={{ backgroundColor: 'var(--color-principal)', border: 'none' }} disabled={saving}>
+              {saving ? <Spinner size="sm" /> : 'Confirmar Nueva Fecha'}
+            </Button>
           </Form>
         </Modal.Body>
       </Modal>
