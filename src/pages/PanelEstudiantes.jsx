@@ -5,7 +5,6 @@ import Calendar from 'react-calendar';
 import 'react-calendar/dist/Calendar.css'; 
 import { supabase } from '../lib/supabase';
 import './PanelEstudiantes.css';
-import logoCSJ from '../assets/LOGO_CSJ.png'; // Asegúrate de que la ruta sea correcta
 
 const PanelEstudiante = () => {
   const [time, setTime] = useState(new Date());
@@ -30,8 +29,11 @@ const PanelEstudiante = () => {
   const [supportData, setSupportData] = useState({ asunto: '', mensaje: '' });
   const [sendingSupport, setSendingSupport] = useState(false);
 
-  // Modal Mi Perfil (al presionar logo superior izquierdo)
   const [showPerfilModal, setShowPerfilModal] = useState(false);
+
+  // NUEVO: Modal de Recordatorio de Citas
+  const [showRecordatorioModal, setShowRecordatorioModal] = useState(false);
+  const [citasDelDiaSeleccionado, setCitasDelDiaSeleccionado] = useState([]);
 
   useEffect(() => {
     const timer = setInterval(() => setTime(new Date()), 1000);
@@ -53,7 +55,8 @@ const PanelEstudiante = () => {
           supabase.from('appointments').select('*', { count: 'exact', head: true }),
           supabase.from('talks').select('*', { count: 'exact', head: true }),
           supabase.from('perfiles').select('id, nombre, estado, created_at, rol').neq('id', userId).order('created_at', { ascending: false }).limit(6),
-          supabase.from('appointments').select('fecha_cita, hora, estado'),
+          // CAMBIO: Aseguramos traer nombre y paciente para el recordatorio
+          supabase.from('appointments').select('id, fecha_cita, hora_cita, estado, nombre, rut').eq('estudiante_id', userId),
           supabase.from('information').select('*').in('categoria', ['IMPORTANTE', 'Salida', 'Recordatorio']).order('fecha_publicacion', { ascending: false }).limit(5)
         ]);
 
@@ -140,7 +143,6 @@ const PanelEstudiante = () => {
   const handleEliminarAviso = async (e, avisoId) => {
     e.stopPropagation();
     if (!window.confirm("¿Estás seguro de eliminar este aviso permanentemente de la base de datos?")) return;
-    
     try {
       const { error } = await supabase.from('information').delete().eq('id', avisoId);
       if (error) throw error;
@@ -156,8 +158,38 @@ const PanelEstudiante = () => {
     return fecha.toLocaleDateString('es-CL', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
   };
 
+  // Lógica del Calendario Interactivo
   const fechaFormateada = fechaSeleccionada.toISOString().split('T')[0];
-  const citasDelDia = misCitas.filter(cita => cita.fecha_cita === fechaFormateada);
+  const citasDelDiaText = misCitas.filter(cita => cita.fecha_cita === fechaFormateada);
+
+  const getCitasForDate = (date) => {
+    // Convierte la fecha del calendario a formato YYYY-MM-DD local
+    const offset = date.getTimezoneOffset()
+    const localDate = new Date(date.getTime() - (offset*60*1000))
+    const formattedDate = localDate.toISOString().split('T')[0];
+    return misCitas.filter(cita => cita.fecha_cita === formattedDate);
+  };
+
+  // Función para destacar días con citas en el calendario
+  const tileClassName = ({ date, view }) => {
+    if (view === 'month') {
+      const citasDelDia = getCitasForDate(date);
+      if (citasDelDia.length > 0) {
+        return 'has-citas'; // Clase CSS que agregaremos a PanelEstudiantes.css
+      }
+    }
+    return null;
+  };
+
+  // Función al hacer clic en un día del calendario
+  const handleDayClick = (value) => {
+    setFechaSeleccionada(value);
+    const citasDelDia = getCitasForDate(value);
+    if (citasDelDia.length > 0) {
+      setCitasDelDiaSeleccionado(citasDelDia);
+      setShowRecordatorioModal(true);
+    }
+  };
 
   const getEstiloAvisoDinámico = (categoria) => {
     switch (categoria) {
@@ -193,10 +225,9 @@ const PanelEstudiante = () => {
   return (
     <div className={`estudiante-wrapper ${isDarkMode ? 'dark-mode' : ''}`}>
       
-      {/* HEADER SUPERIOR: LOGO IZQUIERDO, BANNER CENTRAL Y BOTONES DERECHOS */}
+      {/* HEADER SUPERIOR */}
       <div className="d-flex justify-content-between mb-4 align-items-center animate-up" style={{ position: 'relative', zIndex: 9999 }}>
         
-        {/* LOGO PNG Y PERFIL AL HACER CLIC (Izquierda) */}
         <div className="d-flex align-items-center gap-2" style={{ cursor: 'pointer', minWidth: '200px' }} onClick={() => setShowPerfilModal(true)}>
            <img 
               src="/assets/LOGO_CSJ.png" 
@@ -211,18 +242,16 @@ const PanelEstudiante = () => {
            </div>
         </div>
 
-        {/* CAMBIO: BANNER PNG CENTRAL (REEMPLAZA ESPACIO VACÍO ROJO) */}
         <div className="d-none d-lg-flex justify-content-center flex-grow-1 px-4">
           <img 
-            src={logoCSJ} /* ACTUALIZA ESTE SRC CON EL NOMBRE DE TU IMAGEN PNG */
+            src="/assets/banner-encabezado.png" 
             alt="Banner Estudiante"
             className="img-fluid"
-            style={{ maxHeight: '90px', objectFit: 'contain' }}
-            onError={(e) => e.target.style.display = 'none'} /* Si no la encuentra, no muestra icono roto */
+            style={{ maxHeight: '60px', objectFit: 'contain' }}
+            onError={(e) => e.target.style.display = 'none'}
           />
         </div>
 
-        {/* BOTONES DERECHOS (Hora, Modo Noche, Campana) */}
         <div className="d-flex align-items-center gap-3" style={{ minWidth: '200px', justifyContent: 'flex-end' }}>
           <div className="fw-bolder fs-5 d-none d-md-block" style={{ color: isDarkMode ? '#f8fafc' : '#212529', letterSpacing: '1px' }}>
             {time.toLocaleTimeString('es-CL')}
@@ -238,7 +267,6 @@ const PanelEstudiante = () => {
             {isDarkMode ? '☀️' : '🌙'}
           </Button>
 
-          {/* MENÚ DESPLEGABLE DE NOTIFICACIONES */}
           <Dropdown align="end">
             <Dropdown.Toggle variant="link" className="p-0 text-decoration-none shadow-none text-dark" id="dropdown-notificaciones" bsPrefix="p-0">
               <div className="position-relative" style={{ cursor: 'pointer', fontSize: '1.8rem' }}>
@@ -335,12 +363,18 @@ const PanelEstudiante = () => {
             <Row className="align-items-start">
               <Col md={12}>
                 <div className="mb-3 d-flex justify-content-center">
-                  <Calendar onChange={setFechaSeleccionada} value={fechaSeleccionada} className="rounded-4 shadow-sm border-0" />
+                  <Calendar 
+                    onClickDay={handleDayClick}
+                    onChange={setFechaSeleccionada} 
+                    value={fechaSeleccionada} 
+                    tileClassName={tileClassName}
+                    className="rounded-4 shadow-sm border-0 calendar-custom" 
+                  />
                 </div>
                 <div className="p-3 rounded-4 text-center" style={{ backgroundColor: isDarkMode ? 'rgba(120, 190, 32, 0.1)' : 'rgba(120, 190, 32, 0.05)', border: '1px solid var(--color-secundario, #78BE20)' }}>
                   <h6 className="fw-bold mb-1 fs-6">{fechaSeleccionada.toLocaleDateString('es-CL', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</h6>
                   <p className="mb-0 fw-bold" style={{ color: 'var(--color-secundario, #78BE20)' }}>
-                    {citasDelDia.length > 0 ? `🎯 Tienes ${citasDelDia.length} cita(s) para este día.` : '✨ Día libre, no hay citas programadas.'}
+                    {citasDelDiaText.length > 0 ? `🎯 Tienes ${citasDelDiaText.length} cita(s) para este día.` : '✨ Día libre, no hay citas programadas.'}
                   </p>
                 </div>
               </Col>
@@ -377,9 +411,7 @@ const PanelEstudiante = () => {
                       <div className={`px-3 py-1 fw-bold text-${estilos.headerText} d-flex justify-content-between align-items-center text-uppercase`} style={{ backgroundColor: estilos.headerBg, fontSize: '0.8rem' }}>
                         <span>{estilos.icon} {aviso.categoria}</span>
                         <div className="d-flex gap-2">
-                           {/* BOTÓN OCULTAR (Ojito) */}
-                           <span style={{ cursor: 'pointer' }} onClick={(e) => handleOcultarAviso(e, aviso.id)} title="Ocultar del muro">👁️</span>
-                           {/* BOTÓN ELIMINAR (Basurero) */}
+                           <span style={{ cursor: 'pointer' }} onClick={(e) => handleOcultarAviso(e, aviso.id)} title="Ocultar del muro">👁️️</span>
                            <span style={{ cursor: 'pointer' }} onClick={(e) => handleEliminarAviso(e, aviso.id)} title="Borrar aviso">🗑️</span>
                         </div>
                       </div>
@@ -424,7 +456,7 @@ const PanelEstudiante = () => {
         </Col>
       </Row>
 
-      {/* Modal Mi Perfil (al presionar logo izquierdo) */}
+      {/* MODALES EXISTENTES */}
       <Modal show={showPerfilModal} onHide={() => setShowPerfilModal(false)} centered>
         <Modal.Header closeButton style={{ backgroundColor: 'var(--color-principal)', color: 'white' }}>
           <Modal.Title className="fw-bold fs-5">Mi Perfil</Modal.Title>
@@ -443,7 +475,6 @@ const PanelEstudiante = () => {
         </Modal.Body>
       </Modal>
 
-      {/* Modal Aviso Completo */}
       <Modal show={showAvisoModal} onHide={() => setShowAvisoModal(false)} centered size="lg">
         {avisoSeleccionado && (() => {
           const estilos = getEstiloAvisoDinámico(avisoSeleccionado.categoria);
@@ -475,7 +506,6 @@ const PanelEstudiante = () => {
         })()}
       </Modal>
 
-      {/* Modal Enviar Mensaje a Soporte */}
       <Modal show={showSupportModal} onHide={() => setShowSupportModal(false)} centered>
         <Modal.Header closeButton>
           <Modal.Title className="fw-bold text-danger">✉️ Contactar a Soporte TI</Modal.Title>
@@ -500,6 +530,53 @@ const PanelEstudiante = () => {
           </Form>
         </Modal.Body>
       </Modal>
+
+      {/* NUEVO: MODAL DE RECORDATORIO DE CITAS DEL CALENDARIO */}
+      <Modal show={showRecordatorioModal} onHide={() => setShowRecordatorioModal(false)} centered>
+        <Modal.Header closeButton style={{ backgroundColor: 'var(--color-principal)', color: 'white' }}>
+          <Modal.Title className="fw-bold fs-5">📅 Recordatorio de Citas</Modal.Title>
+        </Modal.Header>
+        <Modal.Body className={isDarkMode ? 'bg-dark text-white' : 'bg-white text-dark'}>
+          <p className="fw-semibold mb-4 text-center">
+            Tienes {citasDelDiaSeleccionado.length} cita(s) agendada(s) para este día.
+          </p>
+          <div className="d-flex flex-column gap-3">
+            {citasDelDiaSeleccionado.map((cita) => (
+              <div key={cita.id} className="p-3 rounded-4 border shadow-sm" style={{ backgroundColor: isDarkMode ? '#1e293b' : '#f8f9fa' }}>
+                <div className="d-flex justify-content-between align-items-center mb-2">
+                  <span className="fw-bold fs-5 text-primary">⏰ {cita.hora_cita?.substring(0, 5)} hrs</span>
+                  <Badge bg="warning" text="dark">{cita.estado}</Badge>
+                </div>
+                <h6 className="fw-bold mb-1">{cita.nombre}</h6>
+                <p className="small text-muted mb-0">RUT: {cita.rut}</p>
+              </div>
+            ))}
+          </div>
+        </Modal.Body>
+        <Modal.Footer className="border-0">
+          <Button variant="outline-secondary" className="w-100 fw-bold" onClick={() => setShowRecordatorioModal(false)}>
+            Cerrar Recordatorio
+          </Button>
+        </Modal.Footer>
+      </Modal>
+
+      {/* CSS inyectado para resaltar los días con citas */}
+      <style>
+        {`
+          .calendar-custom .has-citas {
+            background-color: var(--color-secundario, #78BE20) !important;
+            color: white !important;
+            border-radius: 50% !important;
+            font-weight: bold;
+            box-shadow: 0 4px 8px rgba(120, 190, 32, 0.4);
+            transform: scale(0.9);
+          }
+          .calendar-custom .has-citas:hover {
+            background-color: var(--color-principal, #006A38) !important;
+            transform: scale(1);
+          }
+        `}
+      </style>
     </div>
   );
 };
