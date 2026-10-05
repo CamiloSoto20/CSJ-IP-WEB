@@ -69,7 +69,7 @@ const PanelSoporte = () => {
       const { data: authData } = await supabase.auth.getUser();
       if (authData?.user) {
         const { data: perfil } = await supabase.from('perfiles').select('nombre, rol').eq('id', authData.user.id).single();
-        if (perfil) setPerfilSoporte({ nombre: perfil.nombre, rol: 'Soporte TI' });
+        if (perfil) setPerfilSoporte({ nombre: perfil.nombre, rol: perfil.rol || 'Soporte TI' });
       }
     } catch (error) {
       console.error("Error al cargar perfil de soporte:", error);
@@ -78,11 +78,20 @@ const PanelSoporte = () => {
 
   const fetchUsuarios = async () => {
     try {
-      const { data, error } = await supabase
+      // Obtenemos el ID actual para no mostrarlo en la tabla (y evitar auto-eliminarse)
+      const { data: authData } = await supabase.auth.getUser();
+      const currentUserId = authData?.user?.id;
+
+      let query = supabase
         .from('perfiles')
         .select('*')
-        .neq('rol', 'soporte')
         .order('created_at', { ascending: false });
+        
+      if (currentUserId) {
+        query = query.neq('id', currentUserId);
+      }
+
+      const { data, error } = await query;
       if (error) throw error;
       setUsuarios(data || []);
     } catch (error) {
@@ -94,7 +103,6 @@ const PanelSoporte = () => {
 
   const fetchCitasAgendadas = async (silencioso = false) => {
     try {
-      // CORRECCIÓN: Se cambió 'fecha' por 'fecha_cita'
       const { data, error } = await supabase.from('appointments').select('*').order('fecha_cita', { ascending: true });
       if (error) throw error;
       setCitasAgendadas(data || []);
@@ -208,14 +216,19 @@ const PanelSoporte = () => {
     }
   };
 
-  const handleToggleEstado = async (id, estadoActual) => {
-    const nuevoEstado = estadoActual === 'Activo' ? 'Inactivo' : 'Activo';
+  const handleEliminarUsuario = async (id, nombre) => {
+    if (!window.confirm(`¿Estás seguro de que deseas eliminar permanentemente al usuario ${nombre}? Esta acción no se puede deshacer.`)) {
+      return;
+    }
     try {
-      const { error } = await supabase.from('perfiles').update({ estado: nuevoEstado }).eq('id', id);
+      const { error } = await supabase.from('perfiles').delete().eq('id', id);
       if (error) throw error;
+      
+      alert(`Usuario ${nombre} eliminado correctamente.`);
       fetchUsuarios();
     } catch (error) {
-      console.error("Error al cambiar estado:", error);
+      console.error("Error al eliminar usuario:", error);
+      alert("Hubo un error al eliminar el usuario.");
     }
   };
 
@@ -272,13 +285,18 @@ const PanelSoporte = () => {
     try {
       const { error } = await supabase.from('solicitudes_password').update({ estado: nuevoEstado }).eq('id', id);
       if (error) throw error;
-      fetchSolicitudesPassword();
       
       if (nuevoEstado === 'Aprobado') {
-        alert(`Solicitud aprobada para ${correo}. Aquí se dispararía el reseteo manual. (Simulación UI)`);
+        const { error: resetError } = await supabase.auth.resetPasswordForEmail(correo);
+        if (resetError) throw resetError;
+        alert(`✅ Solicitud aprobada. Se ha enviado un correo con el enlace de recuperación a ${correo}.`);
+      } else {
+        alert(`❌ Solicitud denegada para ${correo}.`);
       }
+
+      fetchSolicitudesPassword();
     } catch (error) {
-      alert("Error al gestionar la solicitud.");
+      alert("Error al gestionar la solicitud: " + error.message);
     }
   };
 
@@ -309,7 +327,9 @@ const PanelSoporte = () => {
               <img src={logoCSJ} alt="Logo" style={{ maxWidth: '60px' }} onError={(e) => e.target.style.display = 'none'} />
               <div>
                 <h2 style={{ color: isDarkMode ? '#78BE20' : 'var(--color-principal)', fontWeight: 'bold', margin: 0 }}>Panel de Soporte TI</h2>
-                <p className="text-muted mb-0">Gestión de cuentas - <span className="fw-bold">{perfilSoporte.nombre}</span></p>
+                <p className="text-muted mb-0">
+                  <span className="fw-bold">{perfilSoporte.nombre}</span> | <span className="text-capitalize">{perfilSoporte.rol}</span> | CSJ
+                </p>
               </div>
             </div>
             <div className="d-flex gap-2">
@@ -325,7 +345,6 @@ const PanelSoporte = () => {
               <Card className="border-0 shadow-sm h-100" style={{ borderRadius: '15px' }}>
                 <Card.Body className="d-flex flex-column gap-3">
                   
-                  {/* ATENCIÓN AL USUARIO */}
                   <div>
                     <h5 className="fw-bold mb-3" style={{ color: 'var(--color-principal)' }}>Atención al Usuario</h5>
                     
@@ -419,8 +438,8 @@ const PanelSoporte = () => {
                                 <Button variant="outline-warning" size="sm" className="me-2" onClick={() => { setUsuarioSeleccionado(usr); setShowPasswordModal(true); }}>
                                   Reset Pass
                                 </Button>
-                                <Button variant={usr.estado === 'Activo' ? 'outline-danger' : 'outline-success'} size="sm" onClick={() => handleToggleEstado(usr.id, usr.estado)}>
-                                  {usr.estado === 'Activo' ? 'Bloquear' : 'Activar'}
+                                <Button variant="outline-danger" size="sm" onClick={() => handleEliminarUsuario(usr.id, usr.nombre)}>
+                                  Eliminar
                                 </Button>
                               </td>
                             </tr>
@@ -476,7 +495,7 @@ const PanelSoporte = () => {
             </Modal.Body>
           </Modal>
 
-          {/* NUEVO MODAL: Solicitudes de Recuperación de Contraseña */}
+          {/* MODAL: Solicitudes de Recuperación de Contraseña */}
           <Modal show={showPasswordRequestsModal} onHide={() => setShowPasswordRequestsModal(false)} size="lg" centered>
             <Modal.Header closeButton>
               <Modal.Title className="fw-bold text-warning">🔑 Solicitudes de Recuperación</Modal.Title>
@@ -536,10 +555,12 @@ const PanelSoporte = () => {
                 
                 <Form.Group className="mb-3">
                   <Form.Label className="small fw-bold">Rol del Usuario</Form.Label>
+                  {/* CAMBIO: Se añadió la opción Soporte TI */}
                   <Form.Select name="rol" value={formData.rol} onChange={handleChange}>
                     <option value="estudiante">Estudiante</option>
                     <option value="coordinadora">Coordinadora</option>
                     <option value="supervisor">Supervisor</option>
+                    <option value="soporte">Soporte TI</option>
                   </Form.Select>
                 </Form.Group>
 
@@ -634,7 +655,6 @@ const PanelSoporte = () => {
                   <tbody>
                     {citasAgendadas.map((cita) => (
                       <tr key={cita.id}>
-                        {/* CORRECCIÓN: Se cambió cita.fecha por cita.fecha_cita */}
                         <td>{cita.fecha_cita}</td>
                         <td>{cita.hora}</td>
                         <td>{cita.motivo || 'N/A'}</td>
