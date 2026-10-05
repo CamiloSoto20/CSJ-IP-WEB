@@ -45,25 +45,25 @@ function App() {
         <Route path="/login" element={<Login />} />
         <Route path="/recuperar-password" element={<RecuperarPassword />} />
 
-        {/* Rutas Protegidas - ESTUDIANTES (Vistas independientes sin Sidebar de Coordinadora) */}
-        <Route path="/panel-estudiante" element={<ProtectedRoute><PanelEstudiantes /></ProtectedRoute>} />
-        <Route path="/panel-estudiante/fichas" element={<ProtectedRoute><FichasEstudiante /></ProtectedRoute>} />
-        <Route path="/panel-estudiante/fichas/nueva-social" element={<ProtectedRoute><NuevaFichaSocial /></ProtectedRoute>} />
-        <Route path="/panel-estudiante/fichas/recopilacion" element={<ProtectedRoute><FichaRecopilacion /></ProtectedRoute>} />
-        <Route path="/panel-estudiante/fichas/visita" element={<ProtectedRoute><FichaVisitaDomiciliaria /></ProtectedRoute>} />
-        <Route path="/panel-estudiante/fichas/intervencion" element={<ProtectedRoute><FichaIntervencion /></ProtectedRoute>} /> 
-        <Route path="/panel-estudiante/fichas/nueva-juridica" element={<ProtectedRoute><NuevaFichaJuridica /></ProtectedRoute>} />
-        <Route path="/panel-estudiante/fichas/ver/:tipo/:id" element={<ProtectedRoute><VerFicha /></ProtectedRoute>} />
-        <Route path="/panel-estudiante/citas" element={<ProtectedRoute><CitasEstudiante /></ProtectedRoute>} />
-        <Route path="/panel-estudiante/charlas" element={<ProtectedRoute><CharlasEstudiante /></ProtectedRoute>} />
-        <Route path="/panel-estudiante/informacion" element={<ProtectedRoute><InformacionEstudiante /></ProtectedRoute>} />
+        {/* RUTAS ESTRICTAS - ESTUDIANTES */}
+        <Route path="/panel-estudiante" element={<ProtectedRoute allowedRoles={['estudiante']}><PanelEstudiantes /></ProtectedRoute>} />
+        <Route path="/panel-estudiante/fichas" element={<ProtectedRoute allowedRoles={['estudiante']}><FichasEstudiante /></ProtectedRoute>} />
+        <Route path="/panel-estudiante/fichas/nueva-social" element={<ProtectedRoute allowedRoles={['estudiante']}><NuevaFichaSocial /></ProtectedRoute>} />
+        <Route path="/panel-estudiante/fichas/recopilacion" element={<ProtectedRoute allowedRoles={['estudiante']}><FichaRecopilacion /></ProtectedRoute>} />
+        <Route path="/panel-estudiante/fichas/visita" element={<ProtectedRoute allowedRoles={['estudiante']}><FichaVisitaDomiciliaria /></ProtectedRoute>} />
+        <Route path="/panel-estudiante/fichas/intervencion" element={<ProtectedRoute allowedRoles={['estudiante']}><FichaIntervencion /></ProtectedRoute>} /> 
+        <Route path="/panel-estudiante/fichas/nueva-juridica" element={<ProtectedRoute allowedRoles={['estudiante']}><NuevaFichaJuridica /></ProtectedRoute>} />
+        <Route path="/panel-estudiante/fichas/ver/:tipo/:id" element={<ProtectedRoute allowedRoles={['estudiante']}><VerFicha /></ProtectedRoute>} />
+        <Route path="/panel-estudiante/citas" element={<ProtectedRoute allowedRoles={['estudiante']}><CitasEstudiante /></ProtectedRoute>} />
+        <Route path="/panel-estudiante/charlas" element={<ProtectedRoute allowedRoles={['estudiante']}><CharlasEstudiante /></ProtectedRoute>} />
+        <Route path="/panel-estudiante/informacion" element={<ProtectedRoute allowedRoles={['estudiante']}><InformacionEstudiante /></ProtectedRoute>} />
         
 
-        {/* Rutas Protegidas - SOPORTE TI (Vista independiente) */}
-        <Route path="/panel-soporte" element={<ProtectedRoute><PanelSoporte /></ProtectedRoute>} />
+        {/* RUTAS ESTRICTAS - SOPORTE TI */}
+        <Route path="/panel-soporte" element={<ProtectedRoute allowedRoles={['soporte']}><PanelSoporte /></ProtectedRoute>} />
 
-        {/* Rutas Protegidas - COORDINADORA (Con Sidebar verde del DashboardLayout) */}
-        <Route element={<ProtectedRoute><DashboardLayout /></ProtectedRoute>}>
+        {/* RUTAS ESTRICTAS - COORDINADORA */}
+        <Route element={<ProtectedRoute allowedRoles={['coordinadora']}><DashboardLayout /></ProtectedRoute>}>
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/dashboard/citas" element={<Citas />} />
           <Route path="/dashboard/charlas" element={<Charlas />} />
@@ -76,8 +76,6 @@ function App() {
           <Route path="/dashboard/fichas/intervencion" element={<FichaIntervencion />} />
           <Route path="/dashboard/fichas/nueva-juridica" element={<NuevaFichaJuridica />} />
           <Route path="/dashboard/fichas/ver/:tipo/:id" element={<VerFicha />} />
-
-          {/* Rutas del Directorio de Estudiantes */}
           <Route path="/dashboard/estudiantes" element={<Estudiantes />} />
           <Route path="/dashboard/estudiantes/:id" element={<PerfilEstudiante />} />
         </Route>
