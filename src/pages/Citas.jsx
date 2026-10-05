@@ -41,7 +41,7 @@ const Citas = () => {
   useEffect(() => {
     fetchCitasYEstudiantes();
 
-    // Tiempo real: Si alguien agenda en la web pública, aparece aquí al instante
+    // Tiempo real: Escucha citas nuevas públicas y si un estudiante toma una cita.
     const channel = supabase.channel('citas-coordinadora')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'appointments' }, () => {
         fetchCitasYEstudiantes();
@@ -143,8 +143,8 @@ const Citas = () => {
               <thead className="bg-light">
                 <tr>
                   <th className="text-muted border-0 py-3 px-4">FECHA Y HORA</th>
-                  <th className="text-muted border-0 py-3">PACIENTE</th>
-                  <th className="text-muted border-0 py-3">ASIGNACIÓN</th>
+                  <th className="text-muted border-0 py-3">USUARIO</th>
+                  <th className="text-muted border-0 py-3">ASIGNACIÓN / DUEÑO</th>
                   <th className="text-muted border-0 py-3">ESTADO</th>
                   <th className="text-muted border-0 py-3 px-4 text-end">ACCIONES</th>
                 </tr>
@@ -162,9 +162,13 @@ const Citas = () => {
                     </td>
                     <td>
                       {cita.estudiante_id ? (
-                        <Badge bg="info" text="dark" className="px-2 py-1"><span className="fw-bold">A cargo:</span> {cita.perfiles?.nombre}</Badge>
+                        <Badge bg="info" text="dark" className="px-2 py-1 border border-info">
+                          <span className="fw-bold">A cargo:</span> {cita.perfiles?.nombre}
+                        </Badge>
                       ) : (
-                        <span className="text-muted small italic">Sin asignar</span>
+                        <Badge bg="warning" className="text-dark bg-opacity-25 border border-warning">
+                          Libre en bolsa de citas
+                        </Badge>
                       )}
                     </td>
                     <td>
@@ -202,7 +206,7 @@ const Citas = () => {
         </Modal.Header>
         <Modal.Body>
           <Form onSubmit={handleAsignarSubmit}>
-            <p className="text-muted small mb-3">Paciente: <strong>{citaSeleccionada?.nombre}</strong></p>
+            <p className="text-muted small mb-3">Usuario: <strong>{citaSeleccionada?.nombre}</strong></p>
             <Form.Group className="mb-4">
               <Form.Label className="fw-bold small">Seleccione al practicante</Form.Label>
               <Form.Select value={estudianteId} onChange={(e) => setEstudianteId(e.target.value)} required>
