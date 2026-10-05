@@ -1,32 +1,47 @@
 import { useState, useEffect } from 'react';
-import { Table, Badge, Spinner, Button, Container, Card, Modal, Row, Col } from 'react-bootstrap';
+import { Table, Badge, Spinner, Button, Container, Card, Modal, Row, Col, Tabs, Tab } from 'react-bootstrap';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 
 const CitasEstudiante = () => {
-  const [citas, setCitas] = useState([]);
+  const [citasDisponibles, setCitasDisponibles] = useState([]);
+  const [misCitas, setMisCitas] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const navigate = useNavigate();
 
   const [citaSeleccionada, setCitaSeleccionada] = useState(null);
   const [showDetalles, setShowDetalles] = useState(false);
 
-  const fetchMisCitas = async () => {
+  const fetchCitas = async () => {
     try {
       const { data: authData } = await supabase.auth.getUser();
       if (!authData?.user) return;
       const userId = authData.user.id;
 
-      // Filtra las citas en las que este estudiante ha sido asignado
-      const { data, error } = await supabase
+      // 1. Buscar citas disponibles (sin estudiante asignado y en estado Pendiente)
+      const { data: disponiblesRes, error: errDisp } = await supabase
+        .from('appointments')
+        .select('*')
+        .is('estudiante_id', null)
+        .eq('estado', 'Pendiente')
+        .order('fecha_cita', { ascending: true })
+        .order('hora_cita', { ascending: true });
+
+      if (errDisp) throw errDisp;
+
+      // 2. Buscar mis citas asignadas/tomadas
+      const { data: misCitasRes, error: errMis } = await supabase
         .from('appointments')
         .select('*')
         .eq('estudiante_id', userId)
         .order('fecha_cita', { ascending: true })
         .order('hora_cita', { ascending: true });
 
-      if (error) throw error;
-      setCitas(data || []);
+      if (errMis) throw errMis;
+
+      setCitasDisponibles(disponiblesRes || []);
+      setMisCitas(misCitasRes || []);
     } catch (error) {
       console.error("Error al cargar las citas:", error.message);
     } finally {
@@ -35,19 +50,40 @@ const CitasEstudiante = () => {
   };
 
   useEffect(() => {
-    fetchMisCitas();
+    fetchCitas();
 
-    // Actualización en vivo si la coordinadora le asigna una nueva
-    const { data: authData } = supabase.auth.getUser().then(({ data }) => {
-      if (data?.user) {
-        const channel = supabase.channel('citas-estudiante')
-          .on('postgres_changes', { event: '*', schema: 'public', table: 'appointments', filter: `estudiante_id=eq.${data.user.id}` }, () => {
-            fetchMisCitas();
-          }).subscribe();
-        return () => supabase.removeChannel(channel);
-      }
-    });
+    // Actualización global en vivo: escucha todas las citas para actualizar la bolsa disponible al instante
+    const channel = supabase.channel('citas-estudiante-global')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'appointments' }, () => {
+        fetchCitas();
+      }).subscribe();
+
+    return () => supabase.removeChannel(channel);
   }, []);
+
+  const handleTomarCita = async (citaId) => {
+    if (!window.confirm("¿Estás seguro de que deseas hacerte cargo de esta cita?")) return;
+    setSaving(true);
+    
+    try {
+      const { data: authData } = await supabase.auth.getUser();
+      const userId = authData.user.id;
+
+      const { error } = await supabase
+        .from('appointments')
+        .update({ estudiante_id: userId, estado: 'Confirmada' })
+        .eq('id', citaId);
+
+      if (error) throw error;
+      
+      alert("¡Cita tomada exitosamente! Ya puedes verla en tu pestaña 'Mis Citas'.");
+      fetchCitas();
+    } catch (error) {
+      alert("Hubo un error al tomar la cita. Puede que otro estudiante la haya tomado primero.");
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const getStatusBadge = (estado) => {
     switch (estado) {
@@ -74,7 +110,6 @@ const CitasEstudiante = () => {
     <div style={{ backgroundColor: '#ffffff', minHeight: '100vh', padding: '2rem' }}>
       <Container fluid className="px-0">
         
-        {/* NAVEGACIÓN Y TÍTULO LIMPIO */}
         <div className="mb-4">
           <Button 
             variant="link" 
@@ -86,74 +121,132 @@ const CitasEstudiante = () => {
           </Button>
           <div className="d-flex justify-content-between align-items-center">
             <h2 className="fw-bolder mb-0" style={{ color: 'var(--color-principal, #006A38)' }}>
-              Mis Citas Asignadas
+              Gestión de Citas
             </h2>
           </div>
         </div>
 
-        {/* TABLA MINIMALISTA */}
-        <Card className="border shadow-sm rounded-3">
-          <Card.Body className="p-0">
-            {loading ? (
-              <div className="text-center py-5">
-                <Spinner animation="border" style={{ color: 'var(--color-principal)' }} />
-              </div>
-            ) : (
-              <Table responsive className="align-middle mb-0 border-white">
-                <thead>
-                  <tr style={{ borderBottom: '2px solid #f1f3f5' }}>
-                    <th className="text-dark border-0 py-3 px-4" style={{ fontSize: '0.8rem', fontWeight: '800' }}>FECHA Y HORA</th>
-                    <th className="text-dark border-0 py-3" style={{ fontSize: '0.8rem', fontWeight: '800' }}>PACIENTE DERIVADO</th>
-                    <th className="text-dark border-0 py-3" style={{ fontSize: '0.8rem', fontWeight: '800' }}>ESTADO</th>
-                    <th className="text-dark border-0 py-3 px-4 text-end" style={{ fontSize: '0.8rem', fontWeight: '800' }}>ACCIÓN</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {citas.length === 0 ? (
-                    <tr>
-                      <td colSpan="4" className="text-center py-5 text-muted" style={{ fontSize: '0.95rem' }}>
-                        No tienes citas agendadas actualmente. La coordinadora te asignará pacientes aquí.
-                      </td>
-                    </tr>
-                  ) : (
-                    citas.map((cita) => (
-                      <tr key={cita.id} style={{ borderBottom: '1px solid #f8f9fa' }}>
-                        <td className="px-4 text-muted small">
-                          <span className="fw-bold d-block text-dark">{formatearFecha(cita.fecha_cita)}</span>
-                          ⏰ {cita.hora_cita?.substring(0, 5)} hrs
-                        </td>
-                        <td>
-                          <span className="fw-bold d-block text-dark">{cita.nombre}</span>
-                          <span className="text-muted" style={{ fontSize: '0.75rem' }}>RUT: {cita.rut}</span>
-                        </td>
-                        <td>
-                          <Badge bg={getStatusBadge(cita.estado)} text={cita.estado === 'Pendiente' ? 'dark' : 'light'} className="px-2 py-1">
-                            {cita.estado}
-                          </Badge>
-                        </td>
-                        <td className="px-4 text-end">
-                          <Button 
-                            variant="outline-success" 
-                            size="sm" 
-                            className="fw-bold"
-                            onClick={() => handleVerPaciente(cita)}
-                          >
-                            Abrir Paciente &rarr;
-                          </Button>
-                        </td>
+        <Tabs defaultActiveKey="disponibles" className="mb-4 fw-bold">
+          <Tab eventKey="disponibles" title={<span>Bolsa de Citas Disponibles <Badge bg="danger" className="ms-1">{citasDisponibles.length}</Badge></span>}>
+            <Card className="border shadow-sm rounded-3">
+              <Card.Body className="p-0">
+                {loading ? (
+                  <div className="text-center py-5"><Spinner animation="border" style={{ color: 'var(--color-principal)' }} /></div>
+                ) : (
+                  <Table responsive className="align-middle mb-0 border-white">
+                    <thead className="bg-light">
+                      <tr>
+                        <th className="text-dark border-0 py-3 px-4" style={{ fontSize: '0.8rem', fontWeight: '800' }}>FECHA SUGERIDA</th>
+                        <th className="text-dark border-0 py-3" style={{ fontSize: '0.8rem', fontWeight: '800' }}>USUARIO</th>
+                        <th className="text-dark border-0 py-3" style={{ fontSize: '0.8rem', fontWeight: '800' }}>ESTADO</th>
+                        <th className="text-dark border-0 py-3 px-4 text-end" style={{ fontSize: '0.8rem', fontWeight: '800' }}>ACCIÓN</th>
                       </tr>
-                    ))
-                  )}
-                </tbody>
-              </Table>
-            )}
-          </Card.Body>
-        </Card>
+                    </thead>
+                    <tbody>
+                      {citasDisponibles.length === 0 ? (
+                        <tr>
+                          <td colSpan="4" className="text-center py-5 text-muted" style={{ fontSize: '0.95rem' }}>
+                            No hay citas nuevas en la bolsa. ¡Todo al día!
+                          </td>
+                        </tr>
+                      ) : (
+                        citasDisponibles.map((cita) => (
+                          <tr key={cita.id} style={{ borderBottom: '1px solid #f8f9fa' }}>
+                            <td className="px-4 text-muted small">
+                              <span className="fw-bold d-block text-dark">{formatearFecha(cita.fecha_cita)}</span>
+                              ⏰ {cita.hora_cita?.substring(0, 5)} hrs
+                            </td>
+                            <td>
+                              <span className="fw-bold d-block text-dark">{cita.nombre}</span>
+                              <span className="text-muted" style={{ fontSize: '0.75rem' }}>RUT: {cita.rut}</span>
+                            </td>
+                            <td>
+                              <Badge bg="warning" text="dark" className="px-2 py-1">Disponible</Badge>
+                            </td>
+                            <td className="px-4 text-end">
+                              <Button 
+                                style={{ backgroundColor: 'var(--color-principal)', border: 'none' }}
+                                size="sm" 
+                                className="fw-bold text-white px-3"
+                                onClick={() => handleTomarCita(cita.id)}
+                                disabled={saving}
+                              >
+                                ✋ Tomar este Caso
+                              </Button>
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </Table>
+                )}
+              </Card.Body>
+            </Card>
+          </Tab>
+
+          <Tab eventKey="mis-citas" title={<span>Mis Citas Asignadas <Badge bg="primary" className="ms-1">{misCitas.length}</Badge></span>}>
+            <Card className="border shadow-sm rounded-3">
+              <Card.Body className="p-0">
+                {loading ? (
+                  <div className="text-center py-5"><Spinner animation="border" style={{ color: 'var(--color-principal)' }} /></div>
+                ) : (
+                  <Table responsive className="align-middle mb-0 border-white">
+                    <thead className="bg-light">
+                      <tr>
+                        <th className="text-dark border-0 py-3 px-4" style={{ fontSize: '0.8rem', fontWeight: '800' }}>FECHA Y HORA</th>
+                        <th className="text-dark border-0 py-3" style={{ fontSize: '0.8rem', fontWeight: '800' }}>USUARIO</th>
+                        <th className="text-dark border-0 py-3" style={{ fontSize: '0.8rem', fontWeight: '800' }}>ESTADO</th>
+                        <th className="text-dark border-0 py-3 px-4 text-end" style={{ fontSize: '0.8rem', fontWeight: '800' }}>ACCIÓN</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {misCitas.length === 0 ? (
+                        <tr>
+                          <td colSpan="4" className="text-center py-5 text-muted" style={{ fontSize: '0.95rem' }}>
+                            Aún no has tomado ni te han asignado usuarios.
+                          </td>
+                        </tr>
+                      ) : (
+                        misCitas.map((cita) => (
+                          <tr key={cita.id} style={{ borderBottom: '1px solid #f8f9fa' }}>
+                            <td className="px-4 text-muted small">
+                              <span className="fw-bold d-block text-dark">{formatearFecha(cita.fecha_cita)}</span>
+                              ⏰ {cita.hora_cita?.substring(0, 5)} hrs
+                            </td>
+                            <td>
+                              <span className="fw-bold d-block text-dark">{cita.nombre}</span>
+                              <span className="text-muted" style={{ fontSize: '0.75rem' }}>RUT: {cita.rut}</span>
+                            </td>
+                            <td>
+                              <Badge bg={getStatusBadge(cita.estado)} text={cita.estado === 'Pendiente' ? 'dark' : 'light'} className="px-2 py-1">
+                                {cita.estado}
+                              </Badge>
+                            </td>
+                            <td className="px-4 text-end">
+                              <Button 
+                                variant="outline-success" 
+                                size="sm" 
+                                className="fw-bold"
+                                onClick={() => handleVerPaciente(cita)}
+                              >
+                                Abrir Usuario &rarr;
+                              </Button>
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </Table>
+                )}
+              </Card.Body>
+            </Card>
+          </Tab>
+        </Tabs>
 
         {/* Modal Resumen de Cita */}
         <Modal show={showDetalles} onHide={() => setShowDetalles(false)} centered>
           <Modal.Header closeButton className="border-0 bg-light">
-            <Modal.Title className="fw-bolder fs-5 text-dark">Detalle de la Derivación</Modal.Title>
+            <Modal.Title className="fw-bolder fs-5 text-dark">Detalle de la Atención</Modal.Title>
           </Modal.Header>
           <Modal.Body className="p-4 pt-4">
             <h5 className="fw-bold text-dark mb-1">{citaSeleccionada?.nombre}</h5>
@@ -189,7 +282,7 @@ const CitasEstudiante = () => {
                 navigate('/panel-estudiante/fichas');
               }}
             >
-              Iniciar Ficha a este Paciente
+              Iniciar Ficha a este Usuario
             </Button>
           </Modal.Footer>
         </Modal>
