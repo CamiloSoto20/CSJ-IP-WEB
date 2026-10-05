@@ -5,6 +5,7 @@ import Calendar from 'react-calendar';
 import 'react-calendar/dist/Calendar.css'; 
 import { supabase } from '../lib/supabase';
 import './PanelEstudiantes.css';
+import logoCSJ from '../assets/LOGO_CSJ.png'; // Asegúrate de que la ruta sea correcta
 
 const PanelEstudiante = () => {
   const [time, setTime] = useState(new Date());
@@ -12,22 +13,25 @@ const PanelEstudiante = () => {
   const navigate = useNavigate();
   
   const [loading, setLoading] = useState(true);
-  const [perfil, setPerfil] = useState({ nombre: 'Cargando...', carrera: 'Derecho' });
+  const [perfil, setPerfil] = useState({ id: '', nombre: 'Cargando...', carrera: 'Cargando...' });
   const [stats, setStats] = useState({ totalFichas: 0, totalCitas: 0, totalCharlas: 0 });
   const [participantes, setParticipantes] = useState([]);
   
   const [fechaSeleccionada, setFechaSeleccionada] = useState(new Date());
   const [misCitas, setMisCitas] = useState([]);
   const [avisosRecientes, setAvisosRecientes] = useState([]);
+  const [avisosOcultos, setAvisosOcultos] = useState([]);
 
-  // Estados para el Modal de Aviso Completo
+  // Modales
   const [showAvisoModal, setShowAvisoModal] = useState(false);
   const [avisoSeleccionado, setAvisoSeleccionado] = useState(null);
-
-  // Estados para Soporte
+  
   const [showSupportModal, setShowSupportModal] = useState(false);
   const [supportData, setSupportData] = useState({ asunto: '', mensaje: '' });
   const [sendingSupport, setSendingSupport] = useState(false);
+
+  // Modal Mi Perfil (al presionar logo superior izquierdo)
+  const [showPerfilModal, setShowPerfilModal] = useState(false);
 
   useEffect(() => {
     const timer = setInterval(() => setTime(new Date()), 1000);
@@ -42,15 +46,9 @@ const PanelEstudiante = () => {
         const userId = authData.user.id;
 
         const [
-          perfilRes,
-          fichasRes,
-          citasRes,
-          charlasRes,
-          usuariosRes,
-          misCitasRes,
-          avisosRes
+          perfilRes, fichasRes, citasRes, charlasRes, usuariosRes, misCitasRes, avisosRes
         ] = await Promise.all([
-          supabase.from('perfiles').select('nombre, rol').eq('id', userId).single(),
+          supabase.from('perfiles').select('id, nombre, rol, carrera').eq('id', userId).single(),
           supabase.from('social_records').select('*', { count: 'exact', head: true }).eq('professional_id', userId),
           supabase.from('appointments').select('*', { count: 'exact', head: true }),
           supabase.from('talks').select('*', { count: 'exact', head: true }),
@@ -59,7 +57,14 @@ const PanelEstudiante = () => {
           supabase.from('information').select('*').in('categoria', ['IMPORTANTE', 'Salida', 'Recordatorio']).order('fecha_publicacion', { ascending: false }).limit(5)
         ]);
 
-        if (perfilRes.data) setPerfil({ nombre: perfilRes.data.nombre, carrera: 'Estudiante de Derecho' });
+        if (perfilRes.data) {
+          setPerfil({ 
+            id: perfilRes.data.id,
+            nombre: perfilRes.data.nombre, 
+            carrera: perfilRes.data.carrera || 'No especificada', 
+            rol: perfilRes.data.rol
+          });
+        }
         
         setStats({
           totalFichas: fichasRes.count || 0,
@@ -80,7 +85,6 @@ const PanelEstudiante = () => {
 
     fetchDatosSistema();
 
-    // SUSCRIPCIÓN EN TIEMPO REAL A AVISOS
     const channel = supabase.channel('avisos-estudiantes')
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'information' }, (payload) => {
         const nuevoAviso = payload.new;
@@ -112,17 +116,12 @@ const PanelEstudiante = () => {
     e.preventDefault();
     setSendingSupport(true);
     try {
-      const { data: authData } = await supabase.auth.getUser();
-      if (!authData?.user) throw new Error("No autenticado");
-
       const { error } = await supabase.from('mensajes_soporte').insert([{
-        estudiante_id: authData.user.id,
+        estudiante_id: perfil.id,
         asunto: supportData.asunto,
         mensaje: supportData.mensaje
       }]);
-
       if (error) throw error;
-      
       alert("Mensaje enviado a Soporte TI exitosamente.");
       setShowSupportModal(false);
       setSupportData({ asunto: '', mensaje: '' });
@@ -130,6 +129,25 @@ const PanelEstudiante = () => {
       alert("Error al enviar el mensaje: " + error.message);
     } finally {
       setSendingSupport(false);
+    }
+  };
+
+  const handleOcultarAviso = (e, avisoId) => {
+    e.stopPropagation(); 
+    setAvisosOcultos([...avisosOcultos, avisoId]);
+  };
+
+  const handleEliminarAviso = async (e, avisoId) => {
+    e.stopPropagation();
+    if (!window.confirm("¿Estás seguro de eliminar este aviso permanentemente de la base de datos?")) return;
+    
+    try {
+      const { error } = await supabase.from('information').delete().eq('id', avisoId);
+      if (error) throw error;
+      setAvisosRecientes(avisosRecientes.filter(aviso => aviso.id !== avisoId));
+    } catch (error) {
+      console.error(error);
+      alert("Error al eliminar. Puede que no tengas permisos RLS para borrar avisos.");
     }
   };
 
@@ -154,11 +172,6 @@ const PanelEstudiante = () => {
     }
   };
 
-  const handleAbrirAviso = (aviso) => {
-    setAvisoSeleccionado(aviso);
-    setShowAvisoModal(true);
-  };
-
   const getRoleBadgeColor = (rol) => {
     switch(rol) {
       case 'coordinadora': return 'danger';
@@ -175,16 +188,46 @@ const PanelEstudiante = () => {
     );
   }
 
+  const avisosVisibles = avisosRecientes.filter(aviso => !avisosOcultos.includes(aviso.id));
+
   return (
     <div className={`estudiante-wrapper ${isDarkMode ? 'dark-mode' : ''}`}>
-      <div className="d-flex justify-content-end mb-4 gap-4 align-items-center animate-up" style={{ position: 'relative', zIndex: 9999 }}>
+      
+      {/* HEADER SUPERIOR: LOGO IZQUIERDO, BANNER CENTRAL Y BOTONES DERECHOS */}
+      <div className="d-flex justify-content-between mb-4 align-items-center animate-up" style={{ position: 'relative', zIndex: 9999 }}>
         
-        {/* RELOJ EN TIEMPO REAL */}
-        <div className="fw-bolder fs-5" style={{ color: isDarkMode ? '#f8fafc' : '#212529', letterSpacing: '1px' }}>
-          {time.toLocaleTimeString('es-CL')}
+        {/* LOGO PNG Y PERFIL AL HACER CLIC (Izquierda) */}
+        <div className="d-flex align-items-center gap-2" style={{ cursor: 'pointer', minWidth: '200px' }} onClick={() => setShowPerfilModal(true)}>
+           <img 
+              src="/assets/LOGO_CSJ.png" 
+              alt="Logo Perfil" 
+              className="rounded-circle shadow-sm" 
+              style={{ width: '50px', height: '50px', objectFit: 'cover', border: `2px solid var(--color-principal)` }} 
+              onError={(e) => { e.target.src = 'https://ui-avatars.com/api/?name=CSJ&background=006A38&color=fff'; }}
+           />
+           <div>
+             <div className="fw-bolder text-truncate" style={{ color: isDarkMode ? '#f8fafc' : '#212529', lineHeight: '1.2', maxWidth: '150px' }}>{perfil.nombre}</div>
+             <Badge bg="success" style={{ fontSize: '0.65rem' }}>{perfil.rol || 'Estudiante'}</Badge>
+           </div>
         </div>
 
-        <div className="d-flex align-items-center gap-3">
+        {/* CAMBIO: BANNER PNG CENTRAL (REEMPLAZA ESPACIO VACÍO ROJO) */}
+        <div className="d-none d-lg-flex justify-content-center flex-grow-1 px-4">
+          <img 
+            src={logoCSJ} /* ACTUALIZA ESTE SRC CON EL NOMBRE DE TU IMAGEN PNG */
+            alt="Banner Estudiante"
+            className="img-fluid"
+            style={{ maxHeight: '90px', objectFit: 'contain' }}
+            onError={(e) => e.target.style.display = 'none'} /* Si no la encuentra, no muestra icono roto */
+          />
+        </div>
+
+        {/* BOTONES DERECHOS (Hora, Modo Noche, Campana) */}
+        <div className="d-flex align-items-center gap-3" style={{ minWidth: '200px', justifyContent: 'flex-end' }}>
+          <div className="fw-bolder fs-5 d-none d-md-block" style={{ color: isDarkMode ? '#f8fafc' : '#212529', letterSpacing: '1px' }}>
+            {time.toLocaleTimeString('es-CL')}
+          </div>
+
           <Button
             variant={isDarkMode ? 'outline-light' : 'outline-dark'}
             className="rounded-circle d-flex align-items-center justify-content-center"
@@ -200,9 +243,9 @@ const PanelEstudiante = () => {
             <Dropdown.Toggle variant="link" className="p-0 text-decoration-none shadow-none text-dark" id="dropdown-notificaciones" bsPrefix="p-0">
               <div className="position-relative" style={{ cursor: 'pointer', fontSize: '1.8rem' }}>
                 🔔
-                {avisosRecientes.length > 0 && (
+                {avisosVisibles.length > 0 && (
                   <Badge bg="danger" className="position-absolute top-0 start-100 translate-middle rounded-pill border border-2 border-white" style={{ fontSize: '0.65rem' }}>
-                    {avisosRecientes.length}
+                    {avisosVisibles.length}
                   </Badge>
                 )}
               </div>
@@ -212,14 +255,14 @@ const PanelEstudiante = () => {
                 <h6 className={`mb-0 fw-bold ${isDarkMode ? 'text-white' : 'text-dark'}`}>Notificaciones</h6>
               </div>
               <div style={{ maxHeight: '350px', overflowY: 'auto' }}>
-                {avisosRecientes.length === 0 ? (
+                {avisosVisibles.length === 0 ? (
                   <div className="p-4 text-center text-muted small">No hay notificaciones recientes.</div>
                 ) : (
-                  avisosRecientes.map(aviso => (
+                  avisosVisibles.map(aviso => (
                     <Dropdown.Item 
                       key={aviso.id} 
                       className={`text-wrap p-3 border-bottom d-flex gap-3 align-items-start ${isDarkMode ? 'text-light border-secondary hover-dark' : 'hover-light'}`}
-                      onClick={() => handleAbrirAviso(aviso)}
+                      onClick={() => { setAvisoSeleccionado(aviso); setShowAvisoModal(true); }}
                     >
                       <span className="fs-5">{getEstiloAvisoDinámico(aviso.categoria).icon}</span>
                       <div>
@@ -241,34 +284,27 @@ const PanelEstudiante = () => {
       </div>
 
       <Row className="g-4 flex-grow-1">
-        {/* COLUMNA 1: Perfil y Soporte */}
+        {/* COLUMNA 1: Acciones Secundarias y Soporte */}
         <Col lg={3} className="d-flex flex-column gap-4 animate-up delay-1">
-          <div className="panel-card profile-section h-100">
-            <div className="profile-header">
-              <div className="mb-3 mx-auto bg-white rounded-circle d-flex align-items-center justify-content-center p-2 shadow-sm" style={{ width: '80px', height: '80px' }}>
-                <img src="/assets/LOGO_CSJ.png" alt="CSJ" className="img-fluid rounded-circle" onError={(e) => { e.target.style.display = 'none'; e.target.parentNode.innerHTML = '⚖'; }} />
-              </div>
-              <h4 className="mb-1">CSJ</h4>
-              <p className="text-muted small mb-4 fw-bold">Clínica Socio Jurídica</p>
-              
-              <div className="mb-4 p-3 rounded-4" style={{ backgroundColor: isDarkMode ? '#0f172a' : '#f8fafc', border: '1px solid var(--border-color, #e2e8f0)' }}>
-                <h5 className="fw-bold mb-1" style={{ color: 'var(--color-principal, #006A38)' }}>{perfil.nombre}</h5>
-                <p className="mb-0 text-muted">{perfil.carrera}</p>
-                <Badge bg="success" className="mt-3 px-3 py-2 rounded-pill">ESTUDIANTE</Badge>
-              </div>
-              
-              <Button variant={isDarkMode ? "outline-light" : "outline-danger"} className="w-100 mt-2 rounded-pill fw-bold py-2" onClick={handleLogout}>
-                Cerrar Sesión
-              </Button>
-
-              {/* SECCIÓN DE CONTACTO A SOPORTE */}
-              <div className="mt-4 p-3 text-start rounded-4 shadow-sm" style={{ backgroundColor: isDarkMode ? '#1e293b' : '#fff', border: isDarkMode ? '1px solid #334155' : '1px solid #e2e8f0' }}>
-                <h6 className="fw-bolder mb-1" style={{ color: '#dc3545' }}>¿Problemas con la plataforma?</h6>
-                <p className="small text-muted mb-3">soporte@csj.cl</p>
-                <Button variant="danger" size="sm" className="w-100 fw-bold" onClick={() => setShowSupportModal(true)}>
-                  ✉️ Enviar Mensaje a Soporte
+          <div className="panel-card h-100 d-flex flex-column justify-content-between text-center p-4">
+            <div>
+              <h5 className="fw-bold mb-4" style={{ color: 'var(--color-principal, #006A38)' }}>Comunicaciones</h5>
+              <div className="d-flex flex-column gap-3">
+                <Button onClick={handleEnviarReporteOutlook} className="w-100 fw-bold py-3 rounded-4 shadow-sm" style={{ backgroundColor: '#0078D4', border: 'none' }}>
+                  📧 Reporte Outlook
+                </Button>
+                <Button onClick={handleEnviarEvidenciasGmail} className="w-100 fw-bold py-3 rounded-4 text-white shadow-sm" style={{ backgroundColor: '#EA4335', border: 'none' }}>
+                  📁 Evidencias Gmail
                 </Button>
               </div>
+            </div>
+
+            <div className="mt-5 p-3 text-start rounded-4 shadow-sm" style={{ backgroundColor: isDarkMode ? '#1e293b' : '#fff', border: isDarkMode ? '1px solid #334155' : '1px solid #e2e8f0' }}>
+              <h6 className="fw-bolder mb-1" style={{ color: '#dc3545' }}>¿Problemas con la plataforma?</h6>
+              <p className="small text-muted mb-3">soporte@csj.cl</p>
+              <Button variant="danger" size="sm" className="w-100 fw-bold" onClick={() => setShowSupportModal(true)}>
+                ✉️ Enviar a Soporte
+              </Button>
             </div>
           </div>
         </Col>
@@ -297,76 +333,59 @@ const PanelEstudiante = () => {
           <div className="panel-card mt-auto">
             <h5 className="fw-bold mb-3" style={{ color: 'var(--color-principal, #006A38)' }}>Resumen del Día</h5>
             <Row className="align-items-start">
-              <Col md={7}>
-                <div className="mb-3">
-                  <Calendar 
-                    onChange={setFechaSeleccionada} 
-                    value={fechaSeleccionada} 
-                    className="w-100 rounded-4 shadow-sm border-0"
-                  />
+              <Col md={12}>
+                <div className="mb-3 d-flex justify-content-center">
+                  <Calendar onChange={setFechaSeleccionada} value={fechaSeleccionada} className="rounded-4 shadow-sm border-0" />
                 </div>
-                <div className="p-3 rounded-4" style={{ backgroundColor: isDarkMode ? 'rgba(120, 190, 32, 0.1)' : 'rgba(120, 190, 32, 0.05)', border: '1px solid var(--color-secundario, #78BE20)' }}>
+                <div className="p-3 rounded-4 text-center" style={{ backgroundColor: isDarkMode ? 'rgba(120, 190, 32, 0.1)' : 'rgba(120, 190, 32, 0.05)', border: '1px solid var(--color-secundario, #78BE20)' }}>
                   <h6 className="fw-bold mb-1 fs-6">{fechaSeleccionada.toLocaleDateString('es-CL', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</h6>
                   <p className="mb-0 fw-bold" style={{ color: 'var(--color-secundario, #78BE20)' }}>
-                    {citasDelDia.length > 0 
-                      ? `🎯 Tienes ${citasDelDia.length} cita(s) para este día.` 
-                      : '✨ Día libre, no hay citas programadas.'}
+                    {citasDelDia.length > 0 ? `🎯 Tienes ${citasDelDia.length} cita(s) para este día.` : '✨ Día libre, no hay citas programadas.'}
                   </p>
                 </div>
-              </Col>
-              <Col md={5} className="d-flex flex-column gap-3">
-                <Button onClick={handleEnviarReporteOutlook} className="w-100 fw-bold py-3 rounded-4 shadow-sm" style={{ backgroundColor: '#0078D4', border: 'none' }}>
-                  📧 Enviar Reporte
-                </Button>
-                <Button onClick={handleEnviarEvidenciasGmail} className="w-100 fw-bold py-3 rounded-4 text-white shadow-sm" style={{ backgroundColor: '#EA4335', border: 'none' }}>
-                  📁 Subir Evidencias
-                </Button>
               </Col>
             </Row>
           </div>
         </Col>
 
-        {/* COLUMNA 3: Avisos y Participantes */}
+        {/* COLUMNA 3: Avisos Laterales y Participantes */}
         <Col lg={3} className="d-flex flex-column gap-4 animate-up delay-3">
           <div className="panel-card d-flex flex-column h-100">
             
-            {/* WIDGET: MURO DE AVISOS PERMANENTE */}
             <div className="d-flex justify-content-between align-items-center mb-3">
               <h5 className="fw-bold mb-0" style={{ color: 'var(--color-principal, #006A38)' }}>Muro de Avisos</h5>
               <Button variant="link" className="p-0 text-decoration-none small fw-bold" onClick={() => navigate('/panel-estudiante/informacion')}>Ver Todos</Button>
             </div>
             
             <div className="mb-4">
-              {avisosRecientes.length === 0 ? (
-                <p className="text-muted small">No hay avisos recientes de coordinación.</p>
+              {avisosVisibles.length === 0 ? (
+                <p className="text-muted small text-center">No tienes avisos en el muro.</p>
               ) : (
-                avisosRecientes.map((aviso) => {
+                avisosVisibles.map((aviso) => {
                   const estilos = getEstiloAvisoDinámico(aviso.categoria);
                   return (
                     <div 
                       key={aviso.id} 
-                      className="shadow-sm mb-3 overflow-hidden" 
+                      className="shadow-sm mb-3 overflow-hidden position-relative" 
                       style={{ 
-                        borderRadius: '12px', 
-                        borderLeft: estilos.borderLeft, 
-                        background: estilos.background,
-                        cursor: 'pointer',
+                        borderRadius: '12px', borderLeft: estilos.borderLeft, background: estilos.background,
                         transition: 'transform 0.2s ease, box-shadow 0.2s ease'
                       }}
-                      onClick={() => handleAbrirAviso(aviso)}
                       onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 6px 12px rgba(0,0,0,0.1)'; }}
                       onMouseLeave={(e) => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = 'none'; }}
                     >
-                      <div className={`px-3 py-1 fw-bold text-${estilos.headerText} d-flex align-items-center gap-2 text-uppercase`} style={{ backgroundColor: estilos.headerBg, fontSize: '0.8rem' }}>
-                        <span>{estilos.icon}</span> {aviso.categoria}
+                      <div className={`px-3 py-1 fw-bold text-${estilos.headerText} d-flex justify-content-between align-items-center text-uppercase`} style={{ backgroundColor: estilos.headerBg, fontSize: '0.8rem' }}>
+                        <span>{estilos.icon} {aviso.categoria}</span>
+                        <div className="d-flex gap-2">
+                           {/* BOTÓN OCULTAR (Ojito) */}
+                           <span style={{ cursor: 'pointer' }} onClick={(e) => handleOcultarAviso(e, aviso.id)} title="Ocultar del muro">👁️</span>
+                           {/* BOTÓN ELIMINAR (Basurero) */}
+                           <span style={{ cursor: 'pointer' }} onClick={(e) => handleEliminarAviso(e, aviso.id)} title="Borrar aviso">🗑️</span>
+                        </div>
                       </div>
-                      <div className="p-3">
-                        <h6 className="fw-bolder mb-1" style={{ fontSize: '0.95rem', color: isDarkMode ? '#f8fafc' : '#212529' }}>
-                          {aviso.titulo}
-                        </h6>
-                        <p className="small mb-2 mt-2 text-truncate" style={{ color: isDarkMode ? '#94a3b8' : '#6c757d' }}>
-                          {aviso.descripcion_corta}
-                        </p>
+                      <div className="p-3" style={{ cursor: 'pointer' }} onClick={() => { setAvisoSeleccionado(aviso); setShowAvisoModal(true); }}>
+                        <h6 className="fw-bolder mb-1" style={{ fontSize: '0.95rem', color: isDarkMode ? '#f8fafc' : '#212529' }}>{aviso.titulo}</h6>
+                        <p className="small mb-2 mt-2 text-truncate" style={{ color: isDarkMode ? '#94a3b8' : '#6c757d' }}>{aviso.descripcion_corta}</p>
                         <div className="text-end">
                           <span className="small fw-bold" style={{ color: estilos.headerBg === '#ffc107' || estilos.headerBg === '#0dcaf0' ? (isDarkMode ? '#ffc107' : '#000') : estilos.headerBg }}>
                             Abrir completo &rarr;
@@ -401,13 +420,28 @@ const PanelEstudiante = () => {
                 ))
               )}
             </div>
-
-            <div className="logo-container mt-auto pt-4 text-center">
-              <img src="/assets/LOGO_CSJ.png" alt="Logo Institucional" style={{ maxWidth: '80px', opacity: '0.3' }} onError={(e) => e.target.style.display = 'none'} />
-            </div>
           </div>
         </Col>
       </Row>
+
+      {/* Modal Mi Perfil (al presionar logo izquierdo) */}
+      <Modal show={showPerfilModal} onHide={() => setShowPerfilModal(false)} centered>
+        <Modal.Header closeButton style={{ backgroundColor: 'var(--color-principal)', color: 'white' }}>
+          <Modal.Title className="fw-bold fs-5">Mi Perfil</Modal.Title>
+        </Modal.Header>
+        <Modal.Body className={`text-center py-4 ${isDarkMode ? 'bg-dark text-white' : 'bg-light text-dark'}`}>
+          <div className="mb-3 mx-auto bg-white rounded-circle d-flex align-items-center justify-content-center p-2 shadow-sm" style={{ width: '100px', height: '100px', border: '3px solid var(--color-principal)' }}>
+            <img src="/assets/LOGO_CSJ.png" alt="CSJ" className="img-fluid rounded-circle" onError={(e) => { e.target.src = 'https://ui-avatars.com/api/?name=CSJ&background=006A38&color=fff'; }} />
+          </div>
+          <h4 className="fw-bold mb-1" style={{ color: 'var(--color-principal)' }}>{perfil.nombre}</h4>
+          <p className="mb-2 text-muted fw-semibold">{perfil.carrera}</p>
+          <Badge bg="success" className="px-3 py-2 rounded-pill fs-6 mb-4 text-capitalize">{perfil.rol}</Badge>
+          
+          <Button variant={isDarkMode ? "outline-light" : "outline-danger"} className="w-100 rounded-pill fw-bold py-2" onClick={handleLogout}>
+            Cerrar Sesión
+          </Button>
+        </Modal.Body>
+      </Modal>
 
       {/* Modal Aviso Completo */}
       <Modal show={showAvisoModal} onHide={() => setShowAvisoModal(false)} centered size="lg">
@@ -425,22 +459,16 @@ const PanelEstudiante = () => {
                 <div className="text-muted small fw-bold mb-3">
                   Publicado el {new Date(avisoSeleccionado.fecha_publicacion || avisoSeleccionado.created_at).toLocaleDateString('es-CL')}
                 </div>
-                <p className="fw-semibold mb-4" style={{ fontSize: '1.05rem' }}>
-                  {avisoSeleccionado.descripcion_corta}
-                </p>
+                <p className="fw-semibold mb-4" style={{ fontSize: '1.05rem' }}>{avisoSeleccionado.descripcion_corta}</p>
                 {avisoSeleccionado.contenido_completo && (
                   <>
                     <hr className={isDarkMode ? 'border-secondary' : ''} />
-                    <p className="mt-3" style={{ whiteSpace: 'pre-wrap', lineHeight: '1.6' }}>
-                      {avisoSeleccionado.contenido_completo}
-                    </p>
+                    <p className="mt-3" style={{ whiteSpace: 'pre-wrap', lineHeight: '1.6' }}>{avisoSeleccionado.contenido_completo}</p>
                   </>
                 )}
               </Modal.Body>
               <Modal.Footer style={{ backgroundColor: isDarkMode ? '#1e1e1e' : '#fff', borderTop: isDarkMode ? '1px solid #333' : '1px solid #dee2e6' }}>
-                <Button variant={isDarkMode ? "outline-light" : "outline-secondary"} onClick={() => setShowAvisoModal(false)}>
-                  Cerrar
-                </Button>
+                <Button variant={isDarkMode ? "outline-light" : "outline-secondary"} onClick={() => setShowAvisoModal(false)}>Cerrar</Button>
               </Modal.Footer>
             </>
           );
@@ -457,24 +485,11 @@ const PanelEstudiante = () => {
             <p className="text-muted small mb-3">Si experimentas problemas técnicos con la plataforma, describe tu situación y soporte lo revisará a la brevedad.</p>
             <Form.Group className="mb-3">
               <Form.Label className="fw-bold small">Asunto / Problema principal</Form.Label>
-              <Form.Control 
-                type="text" 
-                required 
-                value={supportData.asunto} 
-                onChange={(e) => setSupportData({...supportData, asunto: e.target.value})} 
-                placeholder="Ej: No puedo abrir una ficha, Error de conexión..." 
-              />
+              <Form.Control type="text" required value={supportData.asunto} onChange={(e) => setSupportData({...supportData, asunto: e.target.value})} placeholder="Ej: No puedo abrir una ficha, Error de conexión..." />
             </Form.Group>
             <Form.Group className="mb-4">
               <Form.Label className="fw-bold small">Detalles del problema</Form.Label>
-              <Form.Control 
-                as="textarea" 
-                rows={4} 
-                required 
-                value={supportData.mensaje} 
-                onChange={(e) => setSupportData({...supportData, mensaje: e.target.value})} 
-                placeholder="Explica detalladamente lo que ocurre..." 
-              />
+              <Form.Control as="textarea" rows={4} required value={supportData.mensaje} onChange={(e) => setSupportData({...supportData, mensaje: e.target.value})} placeholder="Explica detalladamente lo que ocurre..." />
             </Form.Group>
             <div className="d-flex justify-content-end gap-2">
               <Button variant="outline-secondary" onClick={() => setShowSupportModal(false)} disabled={sendingSupport}>Cancelar</Button>
@@ -485,7 +500,6 @@ const PanelEstudiante = () => {
           </Form>
         </Modal.Body>
       </Modal>
-
     </div>
   );
 };
