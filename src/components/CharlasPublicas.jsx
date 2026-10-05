@@ -8,7 +8,6 @@ const CharlasPublicas = () => {
   const [showModal, setShowModal] = useState(false);
   const [charlaSeleccionada, setCharlaSeleccionada] = useState(null);
   
-  // Estados del formulario
   const [formData, setFormData] = useState({ rut: '', nombre: '', correo: '', telefono: '' });
   const [enviando, setEnviando] = useState(false);
   const [mensaje, setMensaje] = useState({ tipo: '', texto: '' });
@@ -71,32 +70,39 @@ const CharlasPublicas = () => {
   };
 
   if (loading) return <div className="text-center py-5"><Spinner animation="border" style={{ color: 'var(--color-principal)' }} /></div>;
-  if (charlas.length === 0) return null; // No mostramos la sección si no hay charlas
+  if (charlas.length === 0) return null; 
 
   return (
-    <section id="charlas" className="py-5 bg-light">
-      <Container>
+    <section id="charlas" className="py-5 bg-white">
+      <Container className="py-4">
         <div className="text-center mb-5">
-          <h2 style={{ color: 'var(--color-principal)', fontWeight: 'bold' }}>Charlas y Talleres Comunitarios</h2>
-          <p className="text-muted">Inscríbete en nuestras próximas actividades gratuitas</p>
+          <h2 className="section-title">Charlas y Talleres Comunitarios</h2>
+          <p className="text-muted lead">Inscríbete en nuestras próximas actividades formativas gratuitas</p>
         </div>
 
         <Row className="g-4">
           {charlas.map(charla => (
             <Col md={6} lg={4} key={charla.id}>
-              <Card className="h-100 shadow-sm border-0">
-                <Card.Body className="d-flex flex-column">
-                  <Badge bg="success" className="align-self-start mb-2">Inscripciones Abiertas</Badge>
-                  <Card.Title className="fw-bold">{charla.titulo}</Card.Title>
-                  <Card.Text className="text-muted small flex-grow-1">{charla.descripcion}</Card.Text>
-                  <hr className="my-2" />
-                  <div className="small mb-3">
-                    <div>📅 {charla.fecha} | ⏰ {charla.hora.substring(0, 5)} hrs</div>
-                    <div>📍 {charla.ubicacion}</div>
+              <Card className="h-100 card-modern hover-lift border-1" style={{ borderColor: 'rgba(0,0,0,0.05)' }}>
+                {charla.afiche_url && (
+                   <Card.Img variant="top" src={charla.afiche_url} style={{ height: '200px', objectFit: 'cover' }} />
+                )}
+                <Card.Body className="d-flex flex-column p-4">
+                  <div className="d-flex justify-content-between mb-3">
+                    <Badge bg="success" className="px-3 py-2 rounded-pill bg-opacity-10 text-success border border-success fw-bold">Inscripciones Abiertas</Badge>
                   </div>
+                  <Card.Title className="fw-bold mb-3" style={{ color: 'var(--color-principal)', fontSize: '1.25rem' }}>{charla.titulo || charla.nombre}</Card.Title>
+                  <Card.Text className="text-secondary small flex-grow-1" style={{ lineHeight: '1.6' }}>{charla.descripcion}</Card.Text>
+                  
+                  <div className="bg-light rounded-3 p-3 mb-4 small text-dark fw-medium">
+                    <div className="mb-2">📅 <strong>Fecha:</strong> {new Date(charla.fecha).toLocaleDateString('es-CL')}</div>
+                    <div className="mb-2">⏰ <strong>Hora:</strong> {charla.hora.substring(0, 5)} hrs</div>
+                    <div className="mb-0">📍 <strong>Lugar:</strong> {charla.lugar || charla.ubicacion}</div>
+                  </div>
+                  
                   <Button 
-                    style={{ backgroundColor: 'var(--color-principal)', borderColor: 'var(--color-principal)' }} 
-                    className="w-100"
+                    className="btn-custom w-100 text-white"
+                    style={{ backgroundColor: 'var(--color-principal)', border: 'none' }} 
                     onClick={() => handleOpen(charla)}
                   >
                     Inscribirme
@@ -109,40 +115,40 @@ const CharlasPublicas = () => {
 
         {/* Modal de Inscripción */}
         <Modal show={showModal} onHide={handleClose} centered>
-          <Modal.Header closeButton>
-            <Modal.Title style={{ color: 'var(--color-principal)', fontWeight: 'bold' }}>
-              Inscripción a Charla
+          <Modal.Header closeButton className="border-0 pb-0">
+            <Modal.Title style={{ color: 'var(--color-principal)', fontWeight: '800' }}>
+              Confirmar Inscripción
             </Modal.Title>
           </Modal.Header>
-          <Modal.Body>
+          <Modal.Body className="p-4">
             {charlaSeleccionada && (
-              <div className="mb-4 p-3 rounded" style={{ backgroundColor: 'var(--color-fondo)' }}>
-                <h6 className="fw-bold mb-1">{charlaSeleccionada.titulo}</h6>
-                <small className="text-muted">📅 {charlaSeleccionada.fecha} a las {charlaSeleccionada.hora.substring(0, 5)} hrs</small>
+              <div className="mb-4 p-3 rounded-4" style={{ backgroundColor: 'rgba(120, 190, 32, 0.1)' }}>
+                <h6 className="fw-bold mb-2 text-dark">{charlaSeleccionada.titulo || charlaSeleccionada.nombre}</h6>
+                <small className="text-secondary fw-bold">📅 {new Date(charlaSeleccionada.fecha).toLocaleDateString('es-CL')} a las {charlaSeleccionada.hora.substring(0, 5)} hrs</small>
               </div>
             )}
 
-            {mensaje.texto && <Alert variant={mensaje.tipo}>{mensaje.texto}</Alert>}
+            {mensaje.texto && <Alert variant={mensaje.tipo} className="rounded-3">{mensaje.texto}</Alert>}
 
             {!mensaje.texto || mensaje.tipo === 'danger' ? (
               <Form onSubmit={handleSubmit}>
                 <Form.Group className="mb-3">
-                  <Form.Label className="small fw-bold">RUT</Form.Label>
-                  <Form.Control name="rut" value={formData.rut} onChange={handleChange} placeholder="Ej: 12345678-9" required />
+                  <Form.Label className="small fw-bold text-secondary">RUT</Form.Label>
+                  <Form.Control name="rut" value={formData.rut} onChange={handleChange} placeholder="Ej: 12345678-9" required className="py-2" />
                 </Form.Group>
                 <Form.Group className="mb-3">
-                  <Form.Label className="small fw-bold">Nombre completo</Form.Label>
-                  <Form.Control name="nombre" value={formData.nombre} onChange={handleChange} required />
+                  <Form.Label className="small fw-bold text-secondary">Nombre completo</Form.Label>
+                  <Form.Control name="nombre" value={formData.nombre} onChange={handleChange} required className="py-2" />
                 </Form.Group>
                 <Form.Group className="mb-3">
-                  <Form.Label className="small fw-bold">Correo electrónico</Form.Label>
-                  <Form.Control type="email" name="correo" value={formData.correo} onChange={handleChange} required />
+                  <Form.Label className="small fw-bold text-secondary">Correo electrónico</Form.Label>
+                  <Form.Control type="email" name="correo" value={formData.correo} onChange={handleChange} required className="py-2" />
                 </Form.Group>
                 <Form.Group className="mb-4">
-                  <Form.Label className="small fw-bold">Teléfono</Form.Label>
-                  <Form.Control type="tel" name="telefono" value={formData.telefono} onChange={handleChange} required />
+                  <Form.Label className="small fw-bold text-secondary">Teléfono</Form.Label>
+                  <Form.Control type="tel" name="telefono" value={formData.telefono} onChange={handleChange} required className="py-2" />
                 </Form.Group>
-                <Button type="submit" style={{ backgroundColor: 'var(--color-principal)', borderColor: 'var(--color-principal)' }} className="w-100" disabled={enviando}>
+                <Button type="submit" className="btn-custom w-100 text-white py-2 fs-6" style={{ backgroundColor: 'var(--color-principal)', border: 'none' }} disabled={enviando}>
                   {enviando ? <Spinner animation="border" size="sm" /> : 'Confirmar Inscripción'}
                 </Button>
               </Form>

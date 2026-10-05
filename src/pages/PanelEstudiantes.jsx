@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Row, Col, Button, Badge, Spinner, Modal, Dropdown } from 'react-bootstrap';
+import { Row, Col, Button, Badge, Spinner, Modal, Dropdown, Form } from 'react-bootstrap';
 import { useNavigate } from 'react-router-dom';
 import Calendar from 'react-calendar';
 import 'react-calendar/dist/Calendar.css'; 
@@ -23,6 +23,11 @@ const PanelEstudiante = () => {
   // Estados para el Modal de Aviso Completo
   const [showAvisoModal, setShowAvisoModal] = useState(false);
   const [avisoSeleccionado, setAvisoSeleccionado] = useState(null);
+
+  // Estados para Soporte
+  const [showSupportModal, setShowSupportModal] = useState(false);
+  const [supportData, setSupportData] = useState({ asunto: '', mensaje: '' });
+  const [sendingSupport, setSendingSupport] = useState(false);
 
   useEffect(() => {
     const timer = setInterval(() => setTime(new Date()), 1000);
@@ -75,11 +80,10 @@ const PanelEstudiante = () => {
 
     fetchDatosSistema();
 
-    // 📡 SUSCRIPCIÓN EN TIEMPO REAL A AVISOS
+    // SUSCRIPCIÓN EN TIEMPO REAL A AVISOS
     const channel = supabase.channel('avisos-estudiantes')
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'information' }, (payload) => {
         const nuevoAviso = payload.new;
-        // Solo atrapamos los avisos dirigidos a estudiantes
         if (['IMPORTANTE', 'Salida', 'Recordatorio'].includes(nuevoAviso.categoria)) {
           setAvisosRecientes(prevAvisos => [nuevoAviso, ...prevAvisos].slice(0, 5));
         }
@@ -102,6 +106,31 @@ const PanelEstudiante = () => {
 
   const handleEnviarEvidenciasGmail = () => {
     window.open('https://mail.google.com/mail/?view=cm&fs=1&to=evidencias@csj.cl&su=Evidencias%20Casos%20Juridicos', '_blank');
+  };
+
+  const handleSendSupport = async (e) => {
+    e.preventDefault();
+    setSendingSupport(true);
+    try {
+      const { data: authData } = await supabase.auth.getUser();
+      if (!authData?.user) throw new Error("No autenticado");
+
+      const { error } = await supabase.from('mensajes_soporte').insert([{
+        estudiante_id: authData.user.id,
+        asunto: supportData.asunto,
+        mensaje: supportData.mensaje
+      }]);
+
+      if (error) throw error;
+      
+      alert("Mensaje enviado a Soporte TI exitosamente.");
+      setShowSupportModal(false);
+      setSupportData({ asunto: '', mensaje: '' });
+    } catch (error) {
+      alert("Error al enviar el mensaje: " + error.message);
+    } finally {
+      setSendingSupport(false);
+    }
   };
 
   const formatearFecha = (fechaISO) => {
@@ -148,60 +177,67 @@ const PanelEstudiante = () => {
 
   return (
     <div className={`estudiante-wrapper ${isDarkMode ? 'dark-mode' : ''}`}>
-      {/* ⚠️ FIX Z-INDEX: position relative y zIndex 9999 forzado en el contenedor padre para romper el stacking context de la animación */}
-      <div className="d-flex justify-content-end mb-4 gap-3 align-items-center animate-up" style={{ position: 'relative', zIndex: 9999 }}>
-        <Button
-          variant={isDarkMode ? 'outline-light' : 'outline-dark'}
-          className="rounded-circle d-flex align-items-center justify-content-center"
-          style={{ width: '45px', height: '45px', border: '2px solid' }}
-          onClick={() => setIsDarkMode(!isDarkMode)}
-          title="Alternar modo oscuro"
-        >
-          {isDarkMode ? '☀️' : '🌙'}
-        </Button>
+      <div className="d-flex justify-content-end mb-4 gap-4 align-items-center animate-up" style={{ position: 'relative', zIndex: 9999 }}>
+        
+        {/* RELOJ EN TIEMPO REAL */}
+        <div className="fw-bolder fs-5" style={{ color: isDarkMode ? '#f8fafc' : '#212529', letterSpacing: '1px' }}>
+          {time.toLocaleTimeString('es-CL')}
+        </div>
 
-        {/* MENÚ DESPLEGABLE DE NOTIFICACIONES */}
-        <Dropdown align="end">
-          <Dropdown.Toggle variant="link" className="p-0 text-decoration-none shadow-none text-dark" id="dropdown-notificaciones" bsPrefix="p-0">
-            <div className="position-relative" style={{ cursor: 'pointer', fontSize: '1.8rem' }}>
-              🔔
-              {avisosRecientes.length > 0 && (
-                <Badge bg="danger" className="position-absolute top-0 start-100 translate-middle rounded-pill border border-2 border-white" style={{ fontSize: '0.65rem' }}>
-                  {avisosRecientes.length}
-                </Badge>
-              )}
-            </div>
-          </Dropdown.Toggle>
-          <Dropdown.Menu className="shadow-lg border-0 rounded-4 p-0" style={{ width: '320px', backgroundColor: isDarkMode ? '#1e1e1e' : '#fff' }}>
-            <div className={`p-3 border-bottom d-flex justify-content-between align-items-center ${isDarkMode ? 'border-secondary' : ''}`}>
-              <h6 className={`mb-0 fw-bold ${isDarkMode ? 'text-white' : 'text-dark'}`}>Notificaciones</h6>
-            </div>
-            <div style={{ maxHeight: '350px', overflowY: 'auto' }}>
-              {avisosRecientes.length === 0 ? (
-                <div className="p-4 text-center text-muted small">No hay notificaciones recientes.</div>
-              ) : (
-                avisosRecientes.map(aviso => (
-                  <Dropdown.Item 
-                    key={aviso.id} 
-                    className={`text-wrap p-3 border-bottom d-flex gap-3 align-items-start ${isDarkMode ? 'text-light border-secondary hover-dark' : 'hover-light'}`}
-                    onClick={() => handleAbrirAviso(aviso)}
-                  >
-                    <span className="fs-5">{getEstiloAvisoDinámico(aviso.categoria).icon}</span>
-                    <div>
-                      <strong className="d-block text-truncate" style={{ maxWidth: '220px', fontSize: '0.9rem' }}>{aviso.titulo}</strong>
-                      <span className="small text-muted d-block">{aviso.categoria}</span>
-                    </div>
-                  </Dropdown.Item>
-                ))
-              )}
-            </div>
-            <div className={`p-2 text-center ${isDarkMode ? 'bg-dark' : 'bg-light'} rounded-bottom-4`}>
-              <Button variant="link" size="sm" className="text-decoration-none fw-bold" onClick={() => navigate('/panel-estudiante/informacion')}>
-                Ver todo el Muro
-              </Button>
-            </div>
-          </Dropdown.Menu>
-        </Dropdown>
+        <div className="d-flex align-items-center gap-3">
+          <Button
+            variant={isDarkMode ? 'outline-light' : 'outline-dark'}
+            className="rounded-circle d-flex align-items-center justify-content-center"
+            style={{ width: '45px', height: '45px', border: '2px solid' }}
+            onClick={() => setIsDarkMode(!isDarkMode)}
+            title="Alternar modo oscuro"
+          >
+            {isDarkMode ? '☀️' : '🌙'}
+          </Button>
+
+          {/* MENÚ DESPLEGABLE DE NOTIFICACIONES */}
+          <Dropdown align="end">
+            <Dropdown.Toggle variant="link" className="p-0 text-decoration-none shadow-none text-dark" id="dropdown-notificaciones" bsPrefix="p-0">
+              <div className="position-relative" style={{ cursor: 'pointer', fontSize: '1.8rem' }}>
+                🔔
+                {avisosRecientes.length > 0 && (
+                  <Badge bg="danger" className="position-absolute top-0 start-100 translate-middle rounded-pill border border-2 border-white" style={{ fontSize: '0.65rem' }}>
+                    {avisosRecientes.length}
+                  </Badge>
+                )}
+              </div>
+            </Dropdown.Toggle>
+            <Dropdown.Menu className="shadow-lg border-0 rounded-4 p-0" style={{ width: '320px', backgroundColor: isDarkMode ? '#1e1e1e' : '#fff' }}>
+              <div className={`p-3 border-bottom d-flex justify-content-between align-items-center ${isDarkMode ? 'border-secondary' : ''}`}>
+                <h6 className={`mb-0 fw-bold ${isDarkMode ? 'text-white' : 'text-dark'}`}>Notificaciones</h6>
+              </div>
+              <div style={{ maxHeight: '350px', overflowY: 'auto' }}>
+                {avisosRecientes.length === 0 ? (
+                  <div className="p-4 text-center text-muted small">No hay notificaciones recientes.</div>
+                ) : (
+                  avisosRecientes.map(aviso => (
+                    <Dropdown.Item 
+                      key={aviso.id} 
+                      className={`text-wrap p-3 border-bottom d-flex gap-3 align-items-start ${isDarkMode ? 'text-light border-secondary hover-dark' : 'hover-light'}`}
+                      onClick={() => handleAbrirAviso(aviso)}
+                    >
+                      <span className="fs-5">{getEstiloAvisoDinámico(aviso.categoria).icon}</span>
+                      <div>
+                        <strong className="d-block text-truncate" style={{ maxWidth: '220px', fontSize: '0.9rem' }}>{aviso.titulo}</strong>
+                        <span className="small text-muted d-block">{aviso.categoria}</span>
+                      </div>
+                    </Dropdown.Item>
+                  ))
+                )}
+              </div>
+              <div className={`p-2 text-center ${isDarkMode ? 'bg-dark' : 'bg-light'} rounded-bottom-4`}>
+                <Button variant="link" size="sm" className="text-decoration-none fw-bold" onClick={() => navigate('/panel-estudiante/informacion')}>
+                  Ver todo el Muro
+                </Button>
+              </div>
+            </Dropdown.Menu>
+          </Dropdown>
+        </div>
       </div>
 
       <Row className="g-4 flex-grow-1">
@@ -210,7 +246,7 @@ const PanelEstudiante = () => {
           <div className="panel-card profile-section h-100">
             <div className="profile-header">
               <div className="mb-3 mx-auto bg-white rounded-circle d-flex align-items-center justify-content-center p-2 shadow-sm" style={{ width: '80px', height: '80px' }}>
-                <img src="/assets/LOGO_CSJ.png" alt="CSJ" className="img-fluid rounded-circle" onError={(e) => { e.target.style.display = 'none'; e.target.parentNode.innerHTML = '⚖️️'; }} />
+                <img src="/assets/LOGO_CSJ.png" alt="CSJ" className="img-fluid rounded-circle" onError={(e) => { e.target.style.display = 'none'; e.target.parentNode.innerHTML = '⚖'; }} />
               </div>
               <h4 className="mb-1">CSJ</h4>
               <p className="text-muted small mb-4 fw-bold">Clínica Socio Jurídica</p>
@@ -220,9 +256,19 @@ const PanelEstudiante = () => {
                 <p className="mb-0 text-muted">{perfil.carrera}</p>
                 <Badge bg="success" className="mt-3 px-3 py-2 rounded-pill">ESTUDIANTE</Badge>
               </div>
+              
               <Button variant={isDarkMode ? "outline-light" : "outline-danger"} className="w-100 mt-2 rounded-pill fw-bold py-2" onClick={handleLogout}>
                 Cerrar Sesión
               </Button>
+
+              {/* SECCIÓN DE CONTACTO A SOPORTE */}
+              <div className="mt-4 p-3 text-start rounded-4 shadow-sm" style={{ backgroundColor: isDarkMode ? '#1e293b' : '#fff', border: isDarkMode ? '1px solid #334155' : '1px solid #e2e8f0' }}>
+                <h6 className="fw-bolder mb-1" style={{ color: '#dc3545' }}>¿Problemas con la plataforma?</h6>
+                <p className="small text-muted mb-3">soporte@csj.cl</p>
+                <Button variant="danger" size="sm" className="w-100 fw-bold" onClick={() => setShowSupportModal(true)}>
+                  ✉️ Enviar Mensaje a Soporte
+                </Button>
+              </div>
             </div>
           </div>
         </Col>
@@ -240,7 +286,7 @@ const PanelEstudiante = () => {
                 <button 
                   className="action-btn w-100 justify-content-center" 
                   style={{ backgroundColor: isDarkMode ? 'rgba(25, 135, 84, 0.2)' : 'rgba(25, 135, 84, 0.1)', color: '#198754', border: '1px solid rgba(25, 135, 84, 0.3)' }}
-                  onClick={() => window.open('https://aulavirtual.santotomas.cl/', '_blank')}
+                  onClick={() => window.open('https://aulasvirtuales.santotomas.cl/login/index.php', '_blank')}
                 >
                   <span className="fs-4">🎓</span> Aula Virtual Santo Tomás
                 </button>
@@ -400,6 +446,46 @@ const PanelEstudiante = () => {
           );
         })()}
       </Modal>
+
+      {/* Modal Enviar Mensaje a Soporte */}
+      <Modal show={showSupportModal} onHide={() => setShowSupportModal(false)} centered>
+        <Modal.Header closeButton>
+          <Modal.Title className="fw-bold text-danger">✉️ Contactar a Soporte TI</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          <Form onSubmit={handleSendSupport}>
+            <p className="text-muted small mb-3">Si experimentas problemas técnicos con la plataforma, describe tu situación y soporte lo revisará a la brevedad.</p>
+            <Form.Group className="mb-3">
+              <Form.Label className="fw-bold small">Asunto / Problema principal</Form.Label>
+              <Form.Control 
+                type="text" 
+                required 
+                value={supportData.asunto} 
+                onChange={(e) => setSupportData({...supportData, asunto: e.target.value})} 
+                placeholder="Ej: No puedo abrir una ficha, Error de conexión..." 
+              />
+            </Form.Group>
+            <Form.Group className="mb-4">
+              <Form.Label className="fw-bold small">Detalles del problema</Form.Label>
+              <Form.Control 
+                as="textarea" 
+                rows={4} 
+                required 
+                value={supportData.mensaje} 
+                onChange={(e) => setSupportData({...supportData, mensaje: e.target.value})} 
+                placeholder="Explica detalladamente lo que ocurre..." 
+              />
+            </Form.Group>
+            <div className="d-flex justify-content-end gap-2">
+              <Button variant="outline-secondary" onClick={() => setShowSupportModal(false)} disabled={sendingSupport}>Cancelar</Button>
+              <Button type="submit" variant="danger" className="fw-bold" disabled={sendingSupport}>
+                {sendingSupport ? <Spinner animation="border" size="sm" /> : 'Enviar a Bandeja de Soporte'}
+              </Button>
+            </div>
+          </Form>
+        </Modal.Body>
+      </Modal>
+
     </div>
   );
 };

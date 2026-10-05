@@ -17,6 +17,7 @@ const VerFicha = () => {
         if (tipo === 'social') tabla = 'social_records';
         else if (tipo === 'visita') tabla = 'visitas_records';
         else if (tipo === 'recopilacion') tabla = 'recopilacion_records';
+        else if (tipo === 'intervencion') tabla = 'intervencion_records';
         else if (tipo === 'juridica') tabla = 'legal_records';
 
         if (!tabla) throw new Error("Tipo de ficha no válido");

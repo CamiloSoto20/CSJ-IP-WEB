@@ -172,7 +172,7 @@ const Dashboard = () => {
                       <Button
                         className="w-100 fw-bold"
                         style={{ backgroundColor: 'var(--color-principal)', border: 'none' }}
-                        onClick={() => navigate('/dashboard/fichas')}
+                        onClick={() => z}
                       >
                         Ingresar Nueva Ficha
                       </Button>

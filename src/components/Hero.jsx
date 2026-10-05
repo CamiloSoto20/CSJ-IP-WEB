@@ -1,31 +1,44 @@
-import { Container, Row, Col, Button } from 'react-bootstrap';
+import { Container, Row, Col, Button, Badge } from 'react-bootstrap';
 
 const Hero = () => {
   return (
-    <section className="bg-light py-5" style={{ minHeight: '80vh', display: 'flex', alignItems: 'center' }}>
-      <Container>
-        <Row className="align-items-center">
-          <Col lg={6} className="mb-4 mb-lg-0 pe-lg-5">
-            <h1 style={{ color: 'var(--color-principal)', fontWeight: 'bold', fontSize: '3rem' }}>
-              Orientación y apoyo integral para la comunidad
+    <section className="bg-white position-relative" style={{ minHeight: '85vh', display: 'flex', alignItems: 'center', overflow: 'hidden' }}>
+      {/* Fondo decorativo sutil */}
+      <div className="position-absolute top-0 end-0 w-50 h-100" style={{ backgroundColor: 'rgba(120, 190, 32, 0.03)', borderBottomLeftRadius: '100px' }}></div>
+      
+      <Container className="py-5 position-relative z-1">
+        <Row className="align-items-center g-5">
+          <Col lg={6} className="pe-lg-5">
+            <Badge bg="success" className="bg-opacity-10 text-success mb-3 px-3 py-2 rounded-pill fw-bold" style={{ letterSpacing: '1px' }}>
+              ATENCIÓN GRATUITA Y PROFESIONAL
+            </Badge>
+            <h1 style={{ color: 'var(--color-principal)', fontWeight: '800', fontSize: '3.5rem', lineHeight: '1.2' }}>
+              Orientación y apoyo integral para la comunidad.
             </h1>
-            <p className="lead mt-3 mb-4" style={{ color: 'var(--color-texto)' }}>
-              La Clínica Socio Jurídica entrega atención gratuita y profesional en materias jurídicas y sociales, promoviendo el acceso a la justicia y el bienestar.
+            <p className="lead mt-4 mb-5 text-secondary" style={{ fontSize: '1.15rem' }}>
+              La Clínica Socio Jurídica entrega orientación en materias jurídicas y sociales, promoviendo el acceso a la justicia y el bienestar de quienes más lo necesitan.
             </p>
-            <Button 
-              size="lg"
-              style={{ backgroundColor: 'var(--color-secundario)', borderColor: 'var(--color-secundario)', color: 'white' }}
-            >
-              Agenda tu cita
-            </Button>
+            <div className="d-flex gap-3">
+              <Button 
+                size="lg"
+                className="btn-custom text-white px-5"
+                style={{ backgroundColor: 'var(--color-secundario)', border: 'none' }}
+                onClick={() => document.querySelector('.btn-custom').click()} // Simula el click al nav
+              >
+                Agenda tu cita
+              </Button>
+            </div>
           </Col>
           <Col lg={6}>
-            <img 
-              src="/images/image.jpg" 
-              alt="Frontis o equipo de la Clínica Socio Jurídica" 
-              className="img-fluid rounded shadow-lg"
-              style={{ objectFit: 'cover', width: '100%', maxHeight: '500px' }}
-            />
+            <div className="position-relative">
+              <img 
+                src="/images/image.jpg" 
+                alt="Equipo Clínica Socio Jurídica" 
+                className="img-fluid rounded-4 shadow-lg w-100"
+                style={{ objectFit: 'cover', minHeight: '450px' }}
+                onError={(e) => { e.target.src = 'https://images.unsplash.com/photo-1556761175-4b46a572b786?auto=format&fit=crop&q=80&w=1000' }}
+              />
+            </div>
           </Col>
         </Row>
       </Container>

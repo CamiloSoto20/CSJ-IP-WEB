@@ -67,8 +67,18 @@ const DashboardLayout = () => {
               to="/dashboard/fichas" 
               className={`px-3 py-2 rounded d-flex align-items-center gap-3 transition-all ${isActive('/dashboard/fichas') ? 'bg-success text-white' : 'text-light opacity-75 hover-opacity-100'}`}
             >
+            
               📂 <span className="fw-medium">Fichas</span>
             </Nav.Link>
+
+            <Nav.Link 
+              as={Link} 
+              to="/dashboard/estudiantes" 
+              className={`px-3 py-2 rounded d-flex align-items-center gap-3 transition-all ${isActive('/dashboard/estudiantes') ? 'bg-success text-white' : 'text-light opacity-75 hover-opacity-100'}`}
+            >
+              👥 <span className="fw-medium">Estudiantes</span>
+            </Nav.Link>
+            
             <Nav.Link 
               as={Link} 
               to="/dashboard/citas" 
