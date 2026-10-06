@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Container, Table, Button, Spinner, Card, Modal, Row, Col } from 'react-bootstrap';
+import { Container, Table, Button, Spinner, Badge, Card, Modal, Row, Col } from 'react-bootstrap';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
@@ -86,7 +86,6 @@ const FichaEstudiantes = () => {
               Mis Fichas de Intervención
             </h2>
             <div className="d-flex gap-2">
-              {/* BOTÓN FICHA JURÍDICA HABILITADO */}
               <Button 
                 variant="outline-info" 
                 className="fw-bold text-dark border-2" 
@@ -152,7 +151,7 @@ const FichaEstudiantes = () => {
           </Card.Body>
         </Card>
 
-        {/* MODAL 1: SELECCIÓN DE FICHA (Mantiene funcionalidad) */}
+        {/* MODAL 1: SELECCIÓN DE FICHA */}
         <Modal show={showTiposFicha} onHide={() => setShowTiposFicha(false)} centered size="lg">
           <Modal.Header closeButton className="border-0 pb-0">
             <Modal.Title className="fw-bold fs-5" style={{ color: 'var(--color-principal)' }}>Seleccione el tipo de Ficha Social</Modal.Title>
@@ -195,27 +194,48 @@ const FichaEstudiantes = () => {
           <Modal.Body className="p-4 pt-0">
             <h4 className="fw-bold" style={{ color: 'var(--color-principal)' }}>{fichaSeleccionada?.tipoEspecifico}</h4>
             <hr />
-            <p className="mb-1"><span className="text-muted fw-bold">Paciente:</span> {fichaSeleccionada?.participants?.nombre} {fichaSeleccionada?.participants?.apellido}</p>
+            <p className="mb-1"><span className="text-muted fw-bold">Usuario:</span> {fichaSeleccionada?.participants?.nombre} {fichaSeleccionada?.participants?.apellido}</p>
             <p className="mb-1"><span className="text-muted fw-bold">RUT:</span> {fichaSeleccionada?.participants?.rut}</p>
             <p className="mb-1"><span className="text-muted fw-bold">Fecha:</span> {formatearFecha(fichaSeleccionada?.fecha_registro)}</p>
           </Modal.Body>
-          <Modal.Footer className="border-0 bg-light rounded-bottom">
+          <Modal.Footer className="border-0 bg-light rounded-bottom d-flex justify-content-between">
             <Button variant="link" className="text-muted fw-bold text-decoration-none" onClick={() => setShowDetalles(false)}>Cerrar</Button>
-            <Button 
-              style={{ backgroundColor: 'var(--color-principal)', border: 'none' }} 
-              className="fw-bold px-4"
-              onClick={() => {
-                let rutaTipo = 'social';
-                if (fichaSeleccionada?.tipoEspecifico === 'Visita Domiciliaria') rutaTipo = 'visita';
-                if (fichaSeleccionada?.tipoEspecifico === 'Recopilación Info.') rutaTipo = 'recopilacion';
-                if (fichaSeleccionada?.tipoEspecifico === 'Intervención') rutaTipo = 'intervencion';
-                if (fichaSeleccionada?.tipoEspecifico === 'Caso Jurídico') rutaTipo = 'juridica'; // <-- AÑADIDO
-                
-                navigate(`/panel-estudiante/fichas/ver/${rutaTipo}/${fichaSeleccionada.id}`);
-              }}
-            >
-              Ver Ficha Completa
-            </Button>
+            
+            <div className="d-flex gap-2">
+               {/* BOTÓN EDITAR ESTUDIANTE */}
+              <Button 
+                variant="outline-primary"
+                className="fw-bold px-4 bg-white"
+                onClick={() => {
+                  let rutaTipo = 'social';
+                  if (fichaSeleccionada?.tipoEspecifico === 'Visita Domiciliaria') rutaTipo = 'visita';
+                  if (fichaSeleccionada?.tipoEspecifico === 'Recopilación Info.') rutaTipo = 'recopilacion';
+                  if (fichaSeleccionada?.tipoEspecifico === 'Intervención') rutaTipo = 'intervencion';
+                  if (fichaSeleccionada?.tipoEspecifico === 'Caso Jurídico') rutaTipo = 'juridica'; 
+                  
+                  // Ruta estricta de edición para el panel de estudiantes
+                  navigate(`/panel-estudiante/fichas/editar/${rutaTipo}/${fichaSeleccionada.id}`);
+                }}
+              >
+                ✏️ Editar
+              </Button>
+
+              <Button 
+                style={{ backgroundColor: 'var(--color-principal)', border: 'none' }} 
+                className="fw-bold px-4 shadow-sm"
+                onClick={() => {
+                  let rutaTipo = 'social';
+                  if (fichaSeleccionada?.tipoEspecifico === 'Visita Domiciliaria') rutaTipo = 'visita';
+                  if (fichaSeleccionada?.tipoEspecifico === 'Recopilación Info.') rutaTipo = 'recopilacion';
+                  if (fichaSeleccionada?.tipoEspecifico === 'Intervención') rutaTipo = 'intervencion';
+                  if (fichaSeleccionada?.tipoEspecifico === 'Caso Jurídico') rutaTipo = 'juridica'; 
+                  
+                  navigate(`/panel-estudiante/fichas/ver/${rutaTipo}/${fichaSeleccionada.id}`);
+                }}
+              >
+                👁️ Ver Completa
+              </Button>
+            </div>
           </Modal.Footer>
         </Modal>
 
