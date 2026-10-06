@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Container, Card, Form, Row, Col, Button, Table, Badge } from 'react-bootstrap';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '../../../lib/supabase';
@@ -10,14 +10,17 @@ const FichaRecopilacion = () => {
   const { user } = useAuth();
   const [saving, setSaving] = useState(false);
 
+  // Estado para el profesional que elabora la ficha
+  const [perfilActivo, setPerfilActivo] = useState({ nombre: 'Cargando...', rol: '...' });
+
   const rutaBase = location.pathname.includes('panel-estudiante') ? '/panel-estudiante/fichas' : '/dashboard/fichas';
   const fechaActual = new Date().toISOString().split('T')[0];
 
   const [formData, setFormData] = useState({
     fecha: fechaActual,
-    nombre: '', apellido: '', rut: '', fechaNacimiento: '', edad: '',
+    nombre: '', apellido: '', rut: '', fechaNacimiento: '', edad: '', direccion: '',
     sistemaSalud: '', sistemaPrevisional: '', correo: '', celular: '',
-    nacionalidad: '', etnia: '', escolaridad: '', salud: '',
+    nacionalidad: '', etnia: '', escolaridad: '', salud: '', situacionDiscapacidad: '',
     tipoVivienda: '', tenencia: '', estadoConservacion: '', material: '',
     luzElectrica: false, aguaPotable: false, alcantarillado: false, centroComunitario: ''
   });
@@ -25,6 +28,17 @@ const FichaRecopilacion = () => {
   const [grupoFamiliar, setGrupoFamiliar] = useState(
     Array(6).fill({ nombre: '', rut: '', estadoCivil: '', fechaNac: '', parentesco: '', escolaridad: '', ingreso: '', ocupacion: '' })
   );
+
+  // Recuperar datos del profesional que firma
+  useEffect(() => {
+    const fetchPerfil = async () => {
+      if (user?.id) {
+        const { data } = await supabase.from('perfiles').select('nombre, rol').eq('id', user.id).single();
+        if (data) setPerfilActivo(data);
+      }
+    };
+    fetchPerfil();
+  }, [user]);
 
   const formatRUT = (rut) => {
     const cleanRut = rut.replace(/[^0-9kK]/g, '').toUpperCase();
@@ -50,11 +64,16 @@ const FichaRecopilacion = () => {
     setGrupoFamiliar(nuevosFamiliares);
   };
 
+  const validarCorreo = (correo) => {
+    const regex = /^[a-zA-Z0-9._%+-]+@(gmail\.com|hotmail\.com)$/i;
+    return regex.test(correo);
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (formData.correo && !formData.correo.includes('@')) {
-      alert('Por favor, ingrese un correo electrónico válido que contenga "@"');
+    if (formData.correo && !validarCorreo(formData.correo)) {
+      alert('Por favor, ingrese un correo válido que sea de @gmail.com o @hotmail.com');
       return;
     }
 
@@ -68,11 +87,14 @@ const FichaRecopilacion = () => {
           .from('participants')
           .insert([{
             rut: formData.rut, nombre: formData.nombre, apellido: formData.apellido,
-            fecha_nacimiento: formData.fechaNacimiento || null, correo: formData.correo,
-            telefono: formData.celular, nacionalidad: formData.nacionalidad
+            fecha_nacimiento: formData.fechaNacimiento || null, direccion: formData.direccion,
+            correo: formData.correo, telefono: formData.celular, nacionalidad: formData.nacionalidad
           }]).select().single();
         if (errPart) throw errPart;
         participante = nuevoPart;
+      } else {
+         // Si existe, intentar actualizar la dirección si es nueva
+         await supabase.from('participants').update({ direccion: formData.direccion }).eq('id', participante.id);
       }
 
       const familiaresLlenos = grupoFamiliar.filter(f => f.nombre.trim() !== '');
@@ -80,14 +102,24 @@ const FichaRecopilacion = () => {
       const { error: errFicha } = await supabase
         .from('recopilacion_records')
         .insert([{
-          participant_id: participante.id, professional_id: user?.id || null,
-          fecha: formData.fecha, edad: formData.edad ? parseInt(formData.edad) : null,
-          sistema_salud: formData.sistemaSalud, sistema_previsional: formData.sistemaPrevisional,
-          escolaridad: formData.escolaridad, salud: formData.salud, grupo_familiar: familiaresLlenos,
-          tipo_vivienda: formData.tipoVivienda, tenencia: formData.tenencia,
-          estado_conservacion: formData.estadoConservacion, material: formData.material,
-          luz_electrica: formData.luzElectrica, agua_potable: formData.aguaPotable,
-          alcantarillado: formData.alcantarillado, centro_comunitario: formData.centroComunitario
+          participant_id: participante.id, 
+          professional_id: user?.id || null,
+          fecha_registro: formData.fecha, 
+          edad: formData.edad ? parseInt(formData.edad) : null,
+          sistema_salud: formData.sistemaSalud, 
+          sistema_previsional: formData.sistemaPrevisional,
+          escolaridad: formData.escolaridad, 
+          salud: formData.salud, 
+          situacion_discapacidad: formData.situacionDiscapacidad, // Enviando el nuevo campo
+          grupo_familiar: familiaresLlenos,
+          tipo_vivienda: formData.tipoVivienda, 
+          tenencia: formData.tenencia,
+          estado_conservacion: formData.estadoConservacion, 
+          material: formData.material,
+          luz_electrica: formData.luzElectrica, 
+          agua_potable: formData.aguaPotable,
+          alcantarillado: formData.alcantarillado, 
+          centro_comunitario: formData.centroComunitario
         }]);
 
       if (errFicha) throw errFicha;
@@ -106,39 +138,53 @@ const FichaRecopilacion = () => {
   return (
     <Container fluid className="py-4">
       <style>{`.form-control-minimal { border: none; border-radius: 0; border-bottom: 1px solid #dee2e6; background-color: transparent; padding: 0.35rem 0.5rem; font-size: 0.85rem; } .form-control-minimal:focus { box-shadow: none; border-bottom-color: var(--color-principal); } .table-grupo-familiar th { color: #495057; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }`}</style>
+      
       <div className="d-flex justify-content-between align-items-center mb-4">
         <div>
           <h3 className="fw-bold mb-1" style={{ color: 'var(--color-principal, #006A38)' }}>Ficha de Recopilación</h3>
           <p className="text-muted mb-0">Instrumento de recolección de datos socioeconómicos y familiares</p>
         </div>
         <div className="d-flex align-items-center gap-3">
-          <Badge bg="light" text="dark" className="border px-3 py-2 fs-6">📅 Fecha: {new Date(fechaActual).toLocaleDateString('es-CL')}</Badge>
           <Button variant="outline-secondary" onClick={() => navigate(rutaBase)}>&larr; Volver</Button>
         </div>
       </div>
 
       <Form onSubmit={handleSubmit}>
+        
+        {/* I. Identificación del Usuario (Reordenado) */}
         <Card className="border-0 shadow-sm mb-4 rounded-4">
-          <Card.Header className="bg-white border-bottom-0 pt-4 pb-0"><h6 className="fw-bold text-uppercase" style={{ color: 'var(--color-principal)' }}>I. Identificación del Usuario</h6></Card.Header>
+          <Card.Header className="bg-white border-bottom-0 pt-4 pb-0">
+            <h6 className="fw-bold text-uppercase" style={{ color: 'var(--color-principal)' }}>I. Identificación del Usuario</h6>
+          </Card.Header>
           <Card.Body>
             <Row className="g-3">
-              <Col md={3}><Form.Label className="small fw-bold text-muted">RUT</Form.Label><Form.Control name="rut" value={formData.rut} placeholder="12.345.678-9" onChange={handleChange} required maxLength={12} className="fw-bold" /></Col>
-              <Col md={4}><Form.Label className="small fw-bold text-muted">Nombres</Form.Label><Form.Control name="nombre" placeholder="Nombres del usuario" onChange={handleChange} required /></Col>
+              <Col md={5}><Form.Label className="small fw-bold text-muted">Nombres</Form.Label><Form.Control name="nombre" placeholder="Nombres del usuario" onChange={handleChange} required /></Col>
               <Col md={5}><Form.Label className="small fw-bold text-muted">Apellidos</Form.Label><Form.Control name="apellido" placeholder="Apellidos del usuario" onChange={handleChange} required /></Col>
+              <Col md={2}>
+                 <Form.Label className="small fw-bold text-muted">Fecha de Atención</Form.Label>
+                 <Form.Control type="date" name="fecha" value={formData.fecha} readOnly className="fw-bold bg-light" />
+              </Col>
+              
+              <Col md={3}><Form.Label className="small fw-bold text-muted">Cédula de Identidad</Form.Label><Form.Control name="rut" value={formData.rut} placeholder="12.345.678-9" onChange={handleChange} required maxLength={12} className="fw-bold" /></Col>
               <Col md={3}><Form.Label className="small fw-bold text-muted">Fecha Nacimiento</Form.Label><Form.Control type="date" name="fechaNacimiento" onChange={handleChange} /></Col>
               <Col md={2}><Form.Label className="small fw-bold text-muted">Edad</Form.Label><Form.Control type="number" name="edad" placeholder="Años" onChange={handleChange} /></Col>
+              <Col md={4}><Form.Label className="small fw-bold text-muted">Dirección Completa</Form.Label><Form.Control name="direccion" placeholder="Calle, Número, Comuna..." onChange={handleChange} /></Col>
+              
               <Col md={3}><Form.Label className="small fw-bold text-muted">Sistema de Salud</Form.Label><Form.Select name="sistemaSalud" onChange={handleChange}><option value="">Seleccione...</option><option value="Fonasa">Fonasa</option><option value="Isapre">Isapre</option><option value="Ninguno">Ninguno</option><option value="Otro">Otro</option></Form.Select></Col>
-              <Col md={4}><Form.Label className="small fw-bold text-muted">Sistema Previsional</Form.Label><Form.Select name="sistemaPrevisional" onChange={handleChange}><option value="">Seleccione...</option><option value="AFP">AFP</option><option value="INP">INP / IPS</option><option value="Ninguno">Ninguno</option><option value="Otro">Otro</option></Form.Select></Col>
-              <Col md={4}><Form.Label className="small fw-bold text-muted">Correo Electrónico</Form.Label><Form.Control type="email" name="correo" placeholder="ejemplo@correo.com" onChange={handleChange} required /></Col>
+              <Col md={3}><Form.Label className="small fw-bold text-muted">Sistema Previsional</Form.Label><Form.Select name="sistemaPrevisional" onChange={handleChange}><option value="">Seleccione...</option><option value="AFP">AFP</option><option value="INP">INP / IPS</option><option value="Ninguno">Ninguno</option><option value="Otro">Otro</option></Form.Select></Col>
+              <Col md={3}><Form.Label className="small fw-bold text-muted">Correo Electrónico (@gmail/@hotmail)</Form.Label><Form.Control type="email" name="correo" placeholder="ejemplo@gmail.com" onChange={handleChange} required /></Col>
               <Col md={3}><Form.Label className="small fw-bold text-muted">N° Celular</Form.Label><Form.Control name="celular" placeholder="+56 9..." onChange={handleChange} /></Col>
-              <Col md={5}><Form.Label className="small fw-bold text-muted">Estado de Salud</Form.Label><Form.Control name="salud" placeholder="Enfermedades crónicas o relevantes" onChange={handleChange} /></Col>
-              <Col md={4}><Form.Label className="small fw-bold text-muted">Nacionalidad</Form.Label><Form.Control name="nacionalidad" placeholder="Nacionalidad" onChange={handleChange} /></Col>
-              <Col md={4}><Form.Label className="small fw-bold text-muted">Etnia</Form.Label><Form.Control name="etnia" placeholder="Opcional" onChange={handleChange} /></Col>
-              <Col md={4}><Form.Label className="small fw-bold text-muted">Escolaridad</Form.Label><Form.Control name="escolaridad" placeholder="Nivel educacional" onChange={handleChange} /></Col>
+              
+              <Col md={3}><Form.Label className="small fw-bold text-muted">Nacionalidad</Form.Label><Form.Control name="nacionalidad" placeholder="Nacionalidad" onChange={handleChange} /></Col>
+              <Col md={3}><Form.Label className="small fw-bold text-muted">Etnia</Form.Label><Form.Control name="etnia" placeholder="Opcional" onChange={handleChange} /></Col>
+              <Col md={2}><Form.Label className="small fw-bold text-muted">Escolaridad</Form.Label><Form.Control name="escolaridad" placeholder="Nivel" onChange={handleChange} /></Col>
+              <Col md={4}><Form.Label className="small fw-bold text-muted">Estado de Salud</Form.Label><Form.Control name="salud" placeholder="Enfermedades crónicas o relevantes" onChange={handleChange} /></Col>
+              <Col md={12}><Form.Label className="small fw-bold text-muted">Situación de Discapacidad</Form.Label><Form.Control name="situacionDiscapacidad" placeholder="Indicar si aplica" onChange={handleChange} /></Col>
             </Row>
           </Card.Body>
         </Card>
 
+        {/* II. Grupo Familiar */}
         <Card className="border-0 shadow-sm mb-4 rounded-4 overflow-hidden">
           <Card.Header className="bg-white border-bottom-0 pt-4 pb-3"><h6 className="fw-bold text-uppercase mb-0" style={{ color: 'var(--color-principal)' }}>II. Identificación del Grupo Familiar</h6></Card.Header>
           <Table responsive hover className="mb-0 align-middle table-grupo-familiar">
@@ -160,6 +206,7 @@ const FichaRecopilacion = () => {
           </Table>
         </Card>
 
+        {/* III. Antecedentes Habitacionales */}
         <Card className="border-0 shadow-sm mb-4 rounded-4">
           <Card.Header className="bg-white border-bottom-0 pt-4 pb-0"><h6 className="fw-bold text-uppercase" style={{ color: 'var(--color-principal)' }}>III. Antecedentes Habitacionales</h6></Card.Header>
           <Card.Body>
@@ -178,6 +225,17 @@ const FichaRecopilacion = () => {
               </Col>
               <Col md={12} className="mt-3"><Form.Label className="small fw-bold text-muted">Centro Comunitario / Redes Cercanas</Form.Label><Form.Control name="centroComunitario" placeholder="Juntas de vecinos, consultorios..." onChange={handleChange} /></Col>
             </Row>
+          </Card.Body>
+        </Card>
+
+        {/* IDENTIFICACIÓN FINAL DEL PROFESIONAL QUE ATIENDE */}
+        <Card className="border-0 shadow-sm mb-4 rounded-4" style={{ backgroundColor: '#f8f9fa' }}>
+          <Card.Body className="text-center py-4">
+            <p className="text-muted small text-uppercase fw-bold mb-1">Identificación del Personal que Atiende</p>
+            <h4 className="fw-bold mb-0" style={{ color: 'var(--color-principal)' }}>{perfilActivo.nombre}</h4>
+            <Badge bg="secondary" className="mt-2 text-capitalize px-3 py-2 fs-6">
+              {perfilActivo.rol}
+            </Badge>
           </Card.Body>
         </Card>
 
