@@ -53,12 +53,16 @@ const NuevaFichaJuridica = () => {
     }
   };
 
+  const validarCorreo = (correo) => {
+    const regex = /^[a-zA-Z0-9._%+-]+@(gmail\.com|hotmail\.com)$/i;
+    return regex.test(correo);
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    // Validación de correo
-    if (formData.correo && !formData.correo.includes('@')) {
-      alert('Por favor, ingrese un correo electrónico válido que contenga "@"');
+    if (formData.correo && !validarCorreo(formData.correo)) {
+      alert('Por favor, ingrese un correo válido que sea de @gmail.com o @hotmail.com');
       return;
     }
 
@@ -117,9 +121,6 @@ const NuevaFichaJuridica = () => {
           <p className="text-muted mb-0">Documento oficial de consulta y asesoría legal</p>
         </div>
         <div className="d-flex align-items-center gap-3">
-          <Badge bg="light" text="dark" className="border px-3 py-2 fs-6">
-            📅 Fecha: {new Date(fechaActual).toLocaleDateString('es-CL')}
-          </Badge>
           <Button variant="outline-secondary" onClick={() => navigate(rutaBase)}>
             &larr; Volver
           </Button>
@@ -135,11 +136,7 @@ const NuevaFichaJuridica = () => {
           </Card.Header>
           <Card.Body>
             <Row className="g-3">
-              <Col md={3}>
-                <Form.Label className="small fw-bold text-muted">Cédula de Identidad</Form.Label>
-                <Form.Control name="rut" value={formData.rut} placeholder="12.345.678-9" onChange={handleChange} required maxLength={12} className="fw-bold"/>
-              </Col>
-              <Col md={4}>
+              <Col md={5}>
                 <Form.Label className="small fw-bold text-muted">Nombres</Form.Label>
                 <Form.Control name="nombre" placeholder="Nombres" onChange={handleChange} required />
               </Col>
@@ -147,40 +144,43 @@ const NuevaFichaJuridica = () => {
                 <Form.Label className="small fw-bold text-muted">Apellidos</Form.Label>
                 <Form.Control name="apellido" placeholder="Apellidos" onChange={handleChange} required />
               </Col>
+              <Col md={2}>
+                <Form.Label className="small fw-bold text-muted">Fecha de Atención</Form.Label>
+                <Form.Control type="date" name="fecha" value={formData.fecha} readOnly className="bg-light fw-bold" />
+              </Col>
 
               <Col md={3}>
                 <Form.Label className="small fw-bold text-muted">Tiempo Aprox. Atención</Form.Label>
                 <Form.Control name="tiempoAtencion" placeholder="Ej: 45 min" onChange={handleChange} />
               </Col>
               <Col md={3}>
-                <Form.Label className="small fw-bold text-muted">Fecha Nacimiento</Form.Label>
-                <Form.Control type="date" name="fechaNacimiento" onChange={handleChange} />
+                <Form.Label className="small fw-bold text-muted">Cédula de Identidad</Form.Label>
+                <Form.Control name="rut" value={formData.rut} placeholder="12.345.678-9" onChange={handleChange} required maxLength={12} className="fw-bold"/>
               </Col>
               <Col md={2}>
                 <Form.Label className="small fw-bold text-muted">Edad</Form.Label>
                 <Form.Control type="number" name="edad" placeholder="Años" onChange={handleChange} />
               </Col>
               <Col md={4}>
-                <Form.Label className="small fw-bold text-muted">Nacionalidad</Form.Label>
-                <Form.Control name="nacionalidad" placeholder="Nacionalidad" onChange={handleChange} />
-              </Col>
-
-              <Col md={6}>
                 <Form.Label className="small fw-bold text-muted">Dirección Completa</Form.Label>
                 <Form.Control name="direccion" placeholder="Calle, Número, Depto..." onChange={handleChange} />
               </Col>
-              <Col md={6}>
+              
+              <Col md={3}>
                 <Form.Label className="small fw-bold text-muted">Ciudad de Residencia</Form.Label>
                 <Form.Control name="ciudadResidencia" placeholder="Comuna / Ciudad" onChange={handleChange} />
               </Col>
-
-              <Col md={6}>
+              <Col md={3}>
                 <Form.Label className="small fw-bold text-muted">Correo Electrónico</Form.Label>
-                <Form.Control type="email" name="correo" placeholder="ejemplo@correo.com" onChange={handleChange} required />
+                <Form.Control type="email" name="correo" placeholder="ejemplo@gmail.com" onChange={handleChange} required />
               </Col>
-              <Col md={6}>
+              <Col md={3}>
                 <Form.Label className="small fw-bold text-muted">N° Celular</Form.Label>
                 <Form.Control name="celular" placeholder="+56 9..." onChange={handleChange} />
+              </Col>
+              <Col md={3}>
+                <Form.Label className="small fw-bold text-muted">Nacionalidad</Form.Label>
+                <Form.Control name="nacionalidad" placeholder="Nacionalidad" onChange={handleChange} />
               </Col>
             </Row>
           </Card.Body>
@@ -219,7 +219,7 @@ const NuevaFichaJuridica = () => {
         {/* V. CIERRE DEL CASO Y FIRMA PROFESIONAL */}
         <Card className="border-0 shadow-sm mb-4 rounded-4">
           <Card.Header className="bg-white border-bottom-0 pt-4 pb-0">
-            <h6 className="fw-bold text-uppercase text-primary">V. Cierre del Caso y Profesional</h6>
+            <h6 className="fw-bold text-uppercase text-primary">V. Cierre del Caso</h6>
           </Card.Header>
           <Card.Body>
             <Row className="g-4">
@@ -231,15 +231,18 @@ const NuevaFichaJuridica = () => {
                 <Form.Label className="small fw-bold text-muted">Fecha de Cierre</Form.Label>
                 <Form.Control type="date" name="fechaCierre" onChange={handleChange} />
               </Col>
-
-              <Col md={12} className="mt-4">
-                <div className="p-4 bg-light rounded-3 border text-center mx-auto" style={{ maxWidth: '400px' }}>
-                  <p className="text-muted small text-uppercase fw-bold mb-1">Profesional que Atiende</p>
-                  <h5 className="fw-bold mb-0 text-primary">{perfilProfesional.nombre}</h5>
-                  <Badge bg="secondary" className="mt-2 text-capitalize px-3 py-2">{perfilProfesional.rol}</Badge>
-                </div>
-              </Col>
             </Row>
+          </Card.Body>
+        </Card>
+
+        {/* IDENTIFICACIÓN FINAL DEL PROFESIONAL QUE ATIENDE */}
+        <Card className="border-0 shadow-sm mb-4 rounded-4" style={{ backgroundColor: '#f8f9fa' }}>
+          <Card.Body className="text-center py-4">
+            <p className="text-muted small text-uppercase fw-bold mb-1">Identificación del Personal que Atiende</p>
+            <h4 className="fw-bold mb-0 text-primary">{perfilProfesional.nombre}</h4>
+            <Badge bg="secondary" className="mt-2 text-capitalize px-3 py-2 fs-6">
+              {perfilProfesional.rol}
+            </Badge>
           </Card.Body>
         </Card>
 
