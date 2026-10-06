@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react';
-import { Container, Table, Button, Spinner, Badge, Card, Modal, Row, Col } from 'react-bootstrap';
+import { Container, Table, Button, Spinner, Badge, Card, Modal, Row, Col, Form, InputGroup } from 'react-bootstrap';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
+import * as XLSX from 'xlsx';
 
 const ListaFichas = () => {
   const [fichas, setFichas] = useState([]);
+  const [fichasFiltradas, setFichasFiltradas] = useState([]);
   const [loading, setLoading] = useState(true);
   
   // Estados para modales
@@ -12,11 +14,15 @@ const ListaFichas = () => {
   const [showDetalles, setShowDetalles] = useState(false);
   const [showTiposFicha, setShowTiposFicha] = useState(false);
   
+  // Estados para Filtros
+  const [filtroPaciente, setFiltroPaciente] = useState('');
+  const [filtroTipo, setFiltroTipo] = useState('');
+  const [ordenFecha, setOrdenFecha] = useState('desc'); // 'desc' o 'asc'
+  
   const navigate = useNavigate();
 
   const fetchFichas = async () => {
     try {
-      // Consultas en paralelo a las 5 tablas
       const [socialesRes, juridicasRes, recopilacionRes, visitasRes, intervencionRes] = await Promise.all([
         supabase.from('social_records').select('id, fecha_creacion, fecha_cierre, participants(rut, nombre, apellido), perfiles(nombre, rol)'),
         supabase.from('legal_records').select('id, created_at, fecha_cierre, participants(rut, nombre, apellido), perfiles(nombre, rol)'),
@@ -50,6 +56,7 @@ const ListaFichas = () => {
       ].sort((a, b) => b.timestamp - a.timestamp);
 
       setFichas(combinadas);
+      setFichasFiltradas(combinadas); // Inicializamos el estado filtrado
     } catch (error) {
       console.error('Error general al obtener fichas:', error.message);
     } finally {
@@ -60,7 +67,6 @@ const ListaFichas = () => {
   useEffect(() => {
     fetchFichas();
 
-    // Suscripción en tiempo real a las 5 tablas de fichas
     const channel = supabase.channel('fichas-coordinadora-realtime')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'social_records' }, () => fetchFichas())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'legal_records' }, () => fetchFichas())
@@ -73,6 +79,77 @@ const ListaFichas = () => {
       supabase.removeChannel(channel);
     };
   }, []);
+
+  // Lógica de Filtrado y Ordenamiento
+  useEffect(() => {
+    let result = [...fichas];
+
+    // 1. Filtrar por Paciente
+    if (filtroPaciente.trim() !== '') {
+      const searchTerm = filtroPaciente.toLowerCase();
+      result = result.filter(ficha => {
+        const nombreCompleto = `${ficha.participants?.nombre || ''} ${ficha.participants?.apellido || ''}`.toLowerCase();
+        return nombreCompleto.includes(searchTerm);
+      });
+    }
+
+    // 2. Filtrar por Tipo de Ficha
+    if (filtroTipo !== '') {
+      result = result.filter(ficha => ficha.tipoEspecifico === filtroTipo);
+    }
+
+    // 3. Ordenar por Fecha
+    if (ordenFecha === 'asc') {
+      result.sort((a, b) => a.timestamp - b.timestamp);
+    } else {
+      result.sort((a, b) => b.timestamp - a.timestamp);
+    }
+
+    setFichasFiltradas(result);
+  }, [fichas, filtroPaciente, filtroTipo, ordenFecha]);
+
+  const exportarAExcel = () => {
+    if (fichasFiltradas.length === 0) {
+      alert("No hay datos para exportar.");
+      return;
+    }
+
+    const dataAExportar = fichasFiltradas.map(ficha => {
+      // Determinar estado textual
+      let estadoTxt = 'Activo';
+      if (ficha.tipoEspecifico === 'Recopilación Info.' || ficha.tipoEspecifico === 'Visita Domiciliaria') {
+        estadoTxt = 'Registrada';
+      } else if (ficha.fecha_cierre) {
+        estadoTxt = 'Cerrado';
+      }
+
+      return {
+        'Fecha Registro': ficha.fecha_registro ? new Date(ficha.fecha_registro).toLocaleDateString('es-CL') : 'N/A',
+        'Área': ficha.area,
+        'Tipo de Ficha': ficha.tipoEspecifico,
+        'RUT Paciente': ficha.participants?.rut || 'N/A',
+        'Nombre Paciente': `${ficha.participants?.nombre || ''} ${ficha.participants?.apellido || ''}`.trim(),
+        'Elaborado Por': ficha.perfiles?.nombre || 'Sistema',
+        'Rol Creador': ficha.perfiles?.rol || 'N/A',
+        'Estado': estadoTxt,
+        'Fecha Cierre': ficha.fecha_cierre ? new Date(ficha.fecha_cierre).toLocaleDateString('es-CL') : 'N/A',
+        'ID Documento': ficha.id
+      };
+    });
+
+    const worksheet = XLSX.utils.json_to_sheet(dataAExportar);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Registro de Fichas");
+    
+    // Auto-ajustar ancho de columnas básico
+    const wscols = [
+      {wch: 15}, {wch: 10}, {wch: 25}, {wch: 15}, {wch: 30}, 
+      {wch: 30}, {wch: 15}, {wch: 15}, {wch: 15}, {wch: 40}
+    ];
+    worksheet['!cols'] = wscols;
+
+    XLSX.writeFile(workbook, `Registro_Fichas_${new Date().toISOString().split('T')[0]}.xlsx`);
+  };
 
   const formatearFecha = (fechaISO) => {
     if (!fechaISO) return '-';
@@ -101,12 +178,21 @@ const ListaFichas = () => {
       <div className="d-flex justify-content-between align-items-center mb-4">
         <div>
           <h3 className="fw-bold mb-1" style={{ color: 'var(--color-principal, #006A38)' }}>Gestión de Fichas</h3>
-          <p className="text-muted mb-0">Monitorización en vivo de atenciones y derivaciones</p>
+          <p className="text-muted mb-0">Monitorización en vivo, filtrado y exportación de atenciones</p>
         </div>
         <div className="d-flex gap-2">
           <Button 
+            variant="outline-success"
+            className="fw-bold shadow-sm d-flex align-items-center gap-2"
+            onClick={exportarAExcel}
+            disabled={fichasFiltradas.length === 0}
+          >
+             <span>📊</span> Descargar Excel
+          </Button>
+
+          <Button 
             style={{ backgroundColor: '#0dcaf0', border: 'none', color: '#000' }}
-            className="fw-bold shadow-sm"
+            className="fw-bold shadow-sm ms-2"
             onClick={() => navigate('/dashboard/fichas/nueva-juridica')}
           >
             + Ficha Jurídica
@@ -122,6 +208,52 @@ const ListaFichas = () => {
         </div>
       </div>
 
+      {/* PANEL DE FILTROS */}
+      <Card className="border-0 shadow-sm mb-4 bg-light">
+        <Card.Body className="p-3">
+          <Row className="g-3 align-items-center">
+            <Col md={5}>
+               <InputGroup>
+                 <InputGroup.Text className="bg-white border-end-0">🔍</InputGroup.Text>
+                 <Form.Control 
+                   type="text" 
+                   placeholder="Buscar paciente por nombre o apellido..." 
+                   value={filtroPaciente}
+                   onChange={(e) => setFiltroPaciente(e.target.value)}
+                   className="border-start-0 ps-0"
+                 />
+               </InputGroup>
+            </Col>
+            
+            <Col md={4}>
+              <Form.Select 
+                value={filtroTipo} 
+                onChange={(e) => setFiltroTipo(e.target.value)}
+                className="fw-medium"
+              >
+                <option value="">Todas las áreas y tipos</option>
+                <option value="Atención Social">Atención Social</option>
+                <option value="Visita Domiciliaria">Visita Domiciliaria</option>
+                <option value="Recopilación Info.">Recopilación de Información</option>
+                <option value="Intervención">Intervención</option>
+                <option value="Caso Jurídico">Caso Jurídico</option>
+              </Form.Select>
+            </Col>
+            
+            <Col md={3}>
+               <Form.Select 
+                 value={ordenFecha} 
+                 onChange={(e) => setOrdenFecha(e.target.value)}
+                 className="fw-medium"
+               >
+                 <option value="desc">Más recientes primero</option>
+                 <option value="asc">Más antiguos primero</option>
+               </Form.Select>
+            </Col>
+          </Row>
+        </Card.Body>
+      </Card>
+
       <Card className="border-0 shadow-sm">
         <Card.Body className="p-0">
           {loading ? (
@@ -130,74 +262,81 @@ const ListaFichas = () => {
               <p className="text-muted mt-2 mb-0">Sincronizando registros en vivo...</p>
             </div>
           ) : (
-            <Table hover responsive className="align-middle mb-0">
-              <thead className="bg-light">
-                <tr>
-                  <th className="text-muted border-0 py-3 px-4">FECHA Y HORA</th>
-                  <th className="text-muted border-0 py-3">PACIENTE</th>
-                  <th className="text-muted border-0 py-3">ELABORADO POR</th>
-                  <th className="text-muted border-0 py-3">ÁREA Y TIPO</th>
-                  <th className="text-muted border-0 py-3">ESTADO</th>
-                  <th className="text-muted border-0 py-3 px-4 text-end">ACCIÓN</th>
-                </tr>
-              </thead>
-              <tbody>
-                {fichas.length === 0 ? (
+            <>
+              <div className="p-3 border-bottom bg-white d-flex justify-content-between align-items-center">
+                <span className="small text-muted fw-bold">
+                  Mostrando {fichasFiltradas.length} registro(s)
+                </span>
+              </div>
+              <Table hover responsive className="align-middle mb-0">
+                <thead className="bg-light">
                   <tr>
-                    <td colSpan="6" className="text-center py-5 text-muted">
-                      No hay fichas registradas en el sistema.
-                    </td>
+                    <th className="text-muted border-0 py-3 px-4">FECHA Y HORA</th>
+                    <th className="text-muted border-0 py-3">PACIENTE</th>
+                    <th className="text-muted border-0 py-3">ELABORADO POR</th>
+                    <th className="text-muted border-0 py-3">ÁREA Y TIPO</th>
+                    <th className="text-muted border-0 py-3">ESTADO</th>
+                    <th className="text-muted border-0 py-3 px-4 text-end">ACCIÓN</th>
                   </tr>
-                ) : (
-                  fichas.map((ficha) => (
-                    <tr key={ficha.id}>
-                      <td className="px-4 fw-medium text-secondary">
-                        {formatearFecha(ficha.fecha_registro)}
-                      </td>
-                      <td>
-                        <span className="fw-bold d-block text-dark">
-                          {ficha.participants?.nombre} {ficha.participants?.apellido}
-                        </span>
-                        <span className="text-muted small">{ficha.participants?.rut || 'Sin RUT'}</span>
-                      </td>
-                      <td>
-                        <span className="fw-medium d-block text-primary">{ficha.perfiles?.nombre || 'Sistema'}</span>
-                        {ficha.perfiles?.rol && (
-                          <Badge bg="light" text="dark" className="border mt-1 text-capitalize" style={{ fontSize: '0.65rem' }}>
-                            {ficha.perfiles.rol}
-                          </Badge>
-                        )}
-                      </td>
-                      <td>
-                        <Badge 
-                          bg={ficha.area === 'Social' ? 'info' : 'warning'} 
-                          text="dark" 
-                          className="text-uppercase mb-1"
-                        >
-                          {ficha.area}
-                        </Badge>
-                        <span className="d-block small fw-bold text-muted">
-                          {ficha.tipoEspecifico}
-                        </span>
-                      </td>
-                      <td>
-                        {renderEstado(ficha)}
-                      </td>
-                      <td className="px-4 text-end">
-                        <Button 
-                          variant="outline-primary" 
-                          size="sm" 
-                          className="fw-bold"
-                          onClick={() => handleVerDetalles(ficha)}
-                        >
-                          Ver Detalles &rarr;
-                        </Button>
+                </thead>
+                <tbody>
+                  {fichasFiltradas.length === 0 ? (
+                    <tr>
+                      <td colSpan="6" className="text-center py-5 text-muted">
+                        No se encontraron fichas que coincidan con los filtros actuales.
                       </td>
                     </tr>
-                  ))
-                )}
-              </tbody>
-            </Table>
+                  ) : (
+                    fichasFiltradas.map((ficha) => (
+                      <tr key={ficha.id}>
+                        <td className="px-4 fw-medium text-secondary">
+                          {formatearFecha(ficha.fecha_registro)}
+                        </td>
+                        <td>
+                          <span className="fw-bold d-block text-dark">
+                            {ficha.participants?.nombre} {ficha.participants?.apellido}
+                          </span>
+                          <span className="text-muted small">{ficha.participants?.rut || 'Sin RUT'}</span>
+                        </td>
+                        <td>
+                          <span className="fw-medium d-block text-primary">{ficha.perfiles?.nombre || 'Sistema'}</span>
+                          {ficha.perfiles?.rol && (
+                            <Badge bg="light" text="dark" className="border mt-1 text-capitalize" style={{ fontSize: '0.65rem' }}>
+                              {ficha.perfiles.rol}
+                            </Badge>
+                          )}
+                        </td>
+                        <td>
+                          <Badge 
+                            bg={ficha.area === 'Social' ? 'info' : 'warning'} 
+                            text="dark" 
+                            className="text-uppercase mb-1"
+                          >
+                            {ficha.area}
+                          </Badge>
+                          <span className="d-block small fw-bold text-muted">
+                            {ficha.tipoEspecifico}
+                          </span>
+                        </td>
+                        <td>
+                          {renderEstado(ficha)}
+                        </td>
+                        <td className="px-4 text-end">
+                          <Button 
+                            variant="outline-primary" 
+                            size="sm" 
+                            className="fw-bold"
+                            onClick={() => handleVerDetalles(ficha)}
+                          >
+                            Ver Detalles &rarr;
+                          </Button>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </Table>
+            </>
           )}
         </Card.Body>
       </Card>
