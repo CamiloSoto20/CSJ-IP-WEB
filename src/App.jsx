@@ -11,12 +11,14 @@ import Charlas from './pages/Charlas';
 import CharaDetalle from './pages/CharlaDetalle';
 import Informacion from './pages/Informacion';
 import ListaFichas from './pages/coordinadora/ListaFichas';
-import NuevaFichaSocial from './pages/coordinadora/fichas/NuevaFichaSocial';
 import RecuperarPassword from './pages/recuperar/RecuperarPassword';
 
 // Nuevas importaciones de Coordinadora
 import Estudiantes from './pages/coordinadora/Estudiantes';
 import PerfilEstudiante from './pages/coordinadora/PerfilEstudiante';
+
+// Formularios de Fichas
+import NuevaFichaSocial from './pages/coordinadora/fichas/NuevaFichaSocial';
 import FichaRecopilacion from './pages/coordinadora/fichas/FichaRecopilacion';
 import FichaVisitaDomiciliaria from './pages/coordinadora/fichas/FichaVisitaDomiciliaria';
 import VerFicha from './pages/coordinadora/fichas/VerFicha';
@@ -58,6 +60,12 @@ function App() {
         <Route path="/panel-estudiante/charlas" element={<ProtectedRoute allowedRoles={['estudiante']}><CharlasEstudiante /></ProtectedRoute>} />
         <Route path="/panel-estudiante/informacion" element={<ProtectedRoute allowedRoles={['estudiante']}><InformacionEstudiante /></ProtectedRoute>} />
         
+        {/* Rutas de Edición para Estudiantes */}
+        <Route path="/panel-estudiante/fichas/editar/social/:id" element={<ProtectedRoute allowedRoles={['estudiante']}><NuevaFichaSocial /></ProtectedRoute>} />
+        <Route path="/panel-estudiante/fichas/editar/intervencion/:id" element={<ProtectedRoute allowedRoles={['estudiante']}><FichaIntervencion /></ProtectedRoute>} />
+        <Route path="/panel-estudiante/fichas/editar/recopilacion/:id" element={<ProtectedRoute allowedRoles={['estudiante']}><FichaRecopilacion /></ProtectedRoute>} />
+        <Route path="/panel-estudiante/fichas/editar/visita/:id" element={<ProtectedRoute allowedRoles={['estudiante']}><FichaVisitaDomiciliaria /></ProtectedRoute>} />
+        <Route path="/panel-estudiante/fichas/editar/juridica/:id" element={<ProtectedRoute allowedRoles={['estudiante']}><NuevaFichaJuridica /></ProtectedRoute>} />
 
         {/* RUTAS ESTRICTAS - SOPORTE TI */}
         <Route path="/panel-soporte" element={<ProtectedRoute allowedRoles={['soporte']}><PanelSoporte /></ProtectedRoute>} />
@@ -69,15 +77,26 @@ function App() {
           <Route path="/dashboard/charlas" element={<Charlas />} />
           <Route path="/dashboard/charlas/:id" element={<CharaDetalle />} />
           <Route path="/dashboard/informacion" element={<Informacion />} />
+          <Route path="/dashboard/estudiantes" element={<Estudiantes />} />
+          <Route path="/dashboard/estudiantes/:id" element={<PerfilEstudiante />} />
+          
+          {/* Fichas - Listado y Visor */}
           <Route path="/dashboard/fichas" element={<ListaFichas />} />
+          <Route path="/dashboard/fichas/ver/:tipo/:id" element={<VerFicha />} />
+          
+          {/* Fichas - Creación */}
           <Route path="/dashboard/fichas/nueva-social" element={<NuevaFichaSocial />} />
           <Route path="/dashboard/fichas/recopilacion" element={<FichaRecopilacion />} />
           <Route path="/dashboard/fichas/visita" element={<FichaVisitaDomiciliaria />} />
           <Route path="/dashboard/fichas/intervencion" element={<FichaIntervencion />} />
           <Route path="/dashboard/fichas/nueva-juridica" element={<NuevaFichaJuridica />} />
-          <Route path="/dashboard/fichas/ver/:tipo/:id" element={<VerFicha />} />
-          <Route path="/dashboard/estudiantes" element={<Estudiantes />} />
-          <Route path="/dashboard/estudiantes/:id" element={<PerfilEstudiante />} />
+
+          {/* Fichas - Edición (Nuevas Rutas) */}
+          <Route path="/dashboard/fichas/editar/social/:id" element={<NuevaFichaSocial />} />
+          <Route path="/dashboard/fichas/editar/intervencion/:id" element={<FichaIntervencion />} />
+          <Route path="/dashboard/fichas/editar/recopilacion/:id" element={<FichaRecopilacion />} />
+          <Route path="/dashboard/fichas/editar/visita/:id" element={<FichaVisitaDomiciliaria />} />
+          <Route path="/dashboard/fichas/editar/juridica/:id" element={<NuevaFichaJuridica />} />
         </Route>
       </Routes>
     </BrowserRouter>
