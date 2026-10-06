@@ -12,7 +12,6 @@ const VerFicha = () => {
   useEffect(() => {
     const fetchFichaCompleta = async () => {
       try {
-        // Determinar la tabla correcta según el parámetro de la URL
         let tabla = '';
         if (tipo === 'social') tabla = 'social_records';
         else if (tipo === 'visita') tabla = 'visitas_records';
@@ -22,7 +21,6 @@ const VerFicha = () => {
 
         if (!tabla) throw new Error("Tipo de ficha no válido");
 
-        // Consultar la ficha y hacer JOIN con participante y perfil del profesional
         const { data, error } = await supabase
           .from(tabla)
           .select('*, participants(*), perfiles(nombre, rol)')
@@ -52,15 +50,11 @@ const VerFicha = () => {
 
   if (!ficha) return <div className="text-center mt-5">Ficha no encontrada.</div>;
 
-  // Función para formatear las claves (ej: linea_atencion -> Línea Atención)
   const formatearLlave = (key) => {
     return key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
   };
 
-  // Filtrar campos técnicos que no necesitamos mostrar en la lista de detalles
   const camposOcultos = ['id', 'participant_id', 'professional_id', 'created_at', 'fecha_creacion', 'participants', 'perfiles'];
-  
-  // Extraer los detalles específicos de la ficha
   const detallesFicha = Object.entries(ficha).filter(([key, value]) => !camposOcultos.includes(key) && value !== null && value !== '');
 
   return (
@@ -81,10 +75,10 @@ const VerFicha = () => {
         {/* COLUMNA IZQUIERDA: Identificación */}
         <Col lg={4} className="d-flex flex-column gap-4">
           
-          {/* Tarjeta del Paciente (DATOS REALES) */}
+          {/* Tarjeta del Usuario Paciente */}
           <Card className="border-0 shadow-sm rounded-4 border-top border-4 border-primary">
             <Card.Body className="p-4">
-              <h6 className="fw-bold text-muted text-uppercase mb-3">👤 Paciente Registrado</h6>
+              <h6 className="fw-bold text-muted text-uppercase mb-3">👤 Paciente Atendido</h6>
               <h4 className="fw-bolder mb-1">{ficha.participants?.nombre} {ficha.participants?.apellido}</h4>
               <p className="text-muted fw-bold mb-3">RUT: {ficha.participants?.rut || 'Sin registrar'}</p>
               
@@ -97,10 +91,10 @@ const VerFicha = () => {
             </Card.Body>
           </Card>
 
-          {/* Tarjeta del Profesional */}
+          {/* Tarjeta del Estudiante o Profesional */}
           <Card className="border-0 shadow-sm rounded-4 border-top border-4 border-success">
             <Card.Body className="p-4">
-              <h6 className="fw-bold text-muted text-uppercase mb-3">✍️ Creada Por</h6>
+              <h6 className="fw-bold text-muted text-uppercase mb-3">✍️ Profesional / Estudiante a Cargo</h6>
               <div className="d-flex align-items-center gap-3">
                 <div className="rounded-circle bg-success text-white d-flex align-items-center justify-content-center fw-bold fs-4 shadow-sm" style={{ width: '50px', height: '50px' }}>
                   {ficha.perfiles?.nombre?.charAt(0).toUpperCase() || '?'}
@@ -110,12 +104,12 @@ const VerFicha = () => {
                     {ficha.perfiles?.nombre || 'Sistema'}
                   </span>
                   <Badge bg="success" className="text-capitalize mt-1 px-2 py-1">
-                    {ficha.perfiles?.rol || 'Rol no especificado'}
+                    {ficha.perfiles?.rol || 'Rol no asignado'}
                   </Badge>
                 </div>
               </div>
               <hr />
-              <p className="mb-0 small text-muted"><strong>Fecha de Registro:</strong> {new Date(ficha.fecha_creacion || ficha.created_at).toLocaleString('es-CL')}</p>
+              <p className="mb-0 small text-muted"><strong>Fecha de Registro:</strong> {new Date(ficha.fecha_creacion || ficha.created_at).toLocaleString('es-CL', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: 'short', year: 'numeric' })}</p>
             </Card.Body>
           </Card>
         </Col>
@@ -129,7 +123,6 @@ const VerFicha = () => {
             <Card.Body className="p-4">
               <Row className="g-4">
                 {detallesFicha.map(([key, value]) => {
-                  // Si el valor es un arreglo (Como el Grupo Familiar o Participantes en JSONB)
                   if (Array.isArray(value)) {
                     if (value.length === 0) return null;
                     const headers = Object.keys(value[0]);
@@ -150,12 +143,11 @@ const VerFicha = () => {
                     );
                   }
 
-                  // Renderizado normal para textos, booleanos o números
                   return (
                     <Col md={6} key={key}>
                       <div className="p-3 bg-light rounded-3 border h-100">
                         <span className="d-block small fw-bold text-muted text-uppercase mb-1">{formatearLlave(key)}</span>
-                        <span className="fw-medium text-dark" style={{ wordBreak: 'break-word' }}>
+                        <span className="fw-medium text-dark" style={{ wordBreak: 'break-word', whiteSpace: 'pre-wrap' }}>
                           {typeof value === 'boolean' ? (value ? '✅ Sí' : '❌ No') : value}
                         </span>
                       </div>
