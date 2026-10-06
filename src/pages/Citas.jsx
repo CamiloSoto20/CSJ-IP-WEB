@@ -41,7 +41,6 @@ const Citas = () => {
   useEffect(() => {
     fetchCitasYEstudiantes();
 
-    // Tiempo real: Escucha citas nuevas públicas y si un estudiante toma una cita.
     const channel = supabase.channel('citas-coordinadora')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'appointments' }, () => {
         fetchCitasYEstudiantes();
@@ -81,6 +80,25 @@ const Citas = () => {
       alert("Error al asignar al estudiante.");
     } finally {
       setSaving(false);
+    }
+  };
+
+  // NUEVO: Función para asignarse a sí misma
+  const handleAsignarme = async (citaId) => {
+    if (!window.confirm("¿Estás segura que deseas asignarte este caso a tu propia agenda?")) return;
+    try {
+      const { data: authData } = await supabase.auth.getUser();
+      if (!authData?.user) return;
+      
+      const { error } = await supabase.from('appointments')
+        .update({ estudiante_id: authData.user.id, estado: 'Confirmada' })
+        .eq('id', citaId);
+
+      if (error) throw error;
+      alert("Cita asignada a tu agenda personal correctamente.");
+      fetchCitasYEstudiantes();
+    } catch (error) {
+      alert("Error al asignarte la cita.");
     }
   };
 
@@ -130,7 +148,7 @@ const Citas = () => {
       <div className="d-flex justify-content-between align-items-center mb-4">
         <div>
           <h3 className="fw-bold mb-1" style={{ color: 'var(--color-principal, #006A38)' }}>Gestión de Citas</h3>
-          <p className="text-muted mb-0">Recepción en vivo y derivación a estudiantes</p>
+          <p className="text-muted mb-0">Recepción en vivo y derivación a estudiantes o a tu propia agenda</p>
         </div>
       </div>
 
@@ -143,7 +161,7 @@ const Citas = () => {
               <thead className="bg-light">
                 <tr>
                   <th className="text-muted border-0 py-3 px-4">FECHA Y HORA</th>
-                  <th className="text-muted border-0 py-3">USUARIO</th>
+                  <th className="text-muted border-0 py-3">PACIENTE</th>
                   <th className="text-muted border-0 py-3">ASIGNACIÓN / DUEÑO</th>
                   <th className="text-muted border-0 py-3">ESTADO</th>
                   <th className="text-muted border-0 py-3 px-4 text-end">ACCIONES</th>
@@ -181,6 +199,12 @@ const Citas = () => {
                         <Dropdown.Item onClick={() => abrirAsignar(cita)} className="text-primary fw-bold">
                           👤 Asignar a Estudiante
                         </Dropdown.Item>
+                        
+                        {/* NUEVO BOTÓN: ASIGNARME A MÍ */}
+                        <Dropdown.Item onClick={() => handleAsignarme(cita.id)} className="text-success fw-bold">
+                          ✋ Asignarme a mí
+                        </Dropdown.Item>
+
                         <Dropdown.Item onClick={() => abrirReagendar(cita)}>📅 Reagendar</Dropdown.Item>
                         <Dropdown.Item onClick={() => handleStatusChange(cita.id, 'Cancelada')} disabled={cita.estado === 'Cancelada'} className="text-danger">
                           Cancelar Cita
@@ -206,7 +230,7 @@ const Citas = () => {
         </Modal.Header>
         <Modal.Body>
           <Form onSubmit={handleAsignarSubmit}>
-            <p className="text-muted small mb-3">Usuario: <strong>{citaSeleccionada?.nombre}</strong></p>
+            <p className="text-muted small mb-3">Paciente: <strong>{citaSeleccionada?.nombre}</strong></p>
             <Form.Group className="mb-4">
               <Form.Label className="fw-bold small">Seleccione al practicante</Form.Label>
               <Form.Select value={estudianteId} onChange={(e) => setEstudianteId(e.target.value)} required>
