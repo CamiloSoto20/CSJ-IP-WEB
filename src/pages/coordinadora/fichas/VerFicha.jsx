@@ -2,6 +2,9 @@ import { useEffect, useState } from 'react';
 import { Container, Card, Row, Col, Button, Spinner, Table, Badge } from 'react-bootstrap';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../../../lib/supabase';
+import PizZip from 'pizzip';
+import Docxtemplater from 'docxtemplater';
+import { saveAs } from 'file-saver';
 
 const VerFicha = () => {
   const { tipo, id } = useParams();
@@ -54,6 +57,81 @@ const VerFicha = () => {
     return key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
   };
 
+  const descargarWord = async () => {
+    try {
+      // Cargamos el Word (asegúrate de que esté en la carpeta public de tu proyecto React)
+      const response = await fetch('/Atencion.docx');
+      const content = await response.arrayBuffer();
+
+      const zip = new PizZip(content);
+      const doc = new Docxtemplater(zip, {
+        paragraphLoop: true,
+        linebreaks: true,
+      });
+
+      // Mapeamos los datos del estado "ficha" hacia las llaves del Word
+      doc.render({
+        // Identificación de usuario
+        nombre: ficha.participants?.nombre || '',
+        apellido: ficha.participants?.apellido || '',
+        fecha: ficha.fecha_creacion || ficha.created_at || '',
+        rut: ficha.participants?.rut || '',
+        fechaNacimiento: ficha.participants?.fecha_nacimiento || '',
+        edad: ficha.edad || '',
+        direccion: ficha.direccion || '',
+        sistemaSalud: ficha.sistemaSalud || ficha.sistema_salud || '',
+        sistemaPrevisional: ficha.sistemaPrevisional || ficha.sistema_previsional || '',
+        correo: ficha.participants?.correo || '',
+        celular: ficha.participants?.telefono || '',
+        nacionalidad: ficha.participants?.nacionalidad || '',
+        etnia: ficha.etnia || '',
+
+        // Motivo de la atención
+        lineaAtencion: ficha.lineaAtencion || ficha.linea_atencion || '',
+        viaDerivacion: ficha.viaDerivacion || ficha.via_derivacion || '',
+        materiaEspecifica: ficha.materiaEspecifica || ficha.materia_especifica || '',
+        asesoramiento: ficha.asesoramiento ? 'Sí' : 'No',
+        creacionDocumento: ficha.creacionDocumento || ficha.creacion_documento ? 'Sí' : 'No',
+        otroMotivo: ficha.otroMotivo || ficha.otro_motivo || '',
+        compromisoUsuario: ficha.compromisoUsuario || ficha.compromiso_usuario || '',
+        compromisoProfesional: ficha.compromisoProfesional || ficha.compromiso_profesional || '',
+        observacionProfesional: ficha.observacionProfesional || ficha.observacion_profesional || '',
+
+        // Seguimiento y Gestiones
+        llamadoCantidad: ficha.llamadoCantidad || ficha.llamado_cantidad || '',
+        llamadoFecha: ficha.llamadoFecha || ficha.llamado_fecha || '',
+        llamadoResultado: ficha.llamadoResultado || ficha.llamado_resultado || '',
+        visitaCantidad: ficha.visitaCantidad || ficha.visita_cantidad || '',
+        visitaFecha: ficha.visitaFecha || ficha.visita_fecha || '',
+        visitaResultado: ficha.visitaResultado || ficha.visita_resultado || '',
+        teamsCantidad: ficha.teamsCantidad || ficha.teams_cantidad || '',
+        teamsFecha: ficha.teamsFecha || ficha.teams_fecha || '',
+        teamsResultado: ficha.teamsResultado || ficha.teams_resultado || '',
+
+        // Cierre / Derivación
+        lugarDerivacion: ficha.lugarDerivacion || ficha.lugar_derivacion || '',
+        motivoCierre: ficha.motivoCierre || ficha.motivo_cierre || '',
+        profesionalDeriva: ficha.profesionalDeriva || ficha.profesional_deriva || '',
+        fechaCierre: ficha.fecha_cierre || '',
+
+        // Identificación del Profesional
+        profesionalNombre: ficha.perfiles?.nombre || '',
+        profesionalCargo: ficha.perfiles?.rol || ''
+      });
+
+      const blob = doc.getZip().generate({
+        type: 'blob',
+        mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      });
+
+      saveAs(blob, `Ficha_${tipo}_${ficha.participants?.rut || 'paciente'}.docx`);
+
+    } catch (error) {
+      console.error("Error al generar el documento:", error);
+      alert("Hubo un error al generar el documento Word. Verifica que la plantilla exista en la carpeta public.");
+    }
+  };
+
   const camposOcultos = ['id', 'participant_id', 'professional_id', 'created_at', 'fecha_creacion', 'participants', 'perfiles'];
   const detallesFicha = Object.entries(ficha).filter(([key, value]) => !camposOcultos.includes(key) && value !== null && value !== '');
 
@@ -66,22 +144,30 @@ const VerFicha = () => {
           </h3>
           <p className="text-muted mb-0">Visualización completa del documento</p>
         </div>
-        <Button variant="outline-secondary" onClick={() => navigate(-1)}>
-          &larr; Volver
-        </Button>
+        <div className="d-flex gap-2">
+          {/* Solo mostramos el botón si es una ficha social para que coincida con tu formato Word */}
+          {tipo === 'social' && (
+            <Button variant="primary" className="fw-bold shadow-sm" onClick={descargarWord}>
+              📥 Descargar Word
+            </Button>
+          )}
+          <Button variant="outline-secondary" onClick={() => navigate(-1)}>
+            &larr; Volver
+          </Button>
+        </div>
       </div>
 
       <Row className="g-4">
         {/* COLUMNA IZQUIERDA: Identificación */}
         <Col lg={4} className="d-flex flex-column gap-4">
-          
+
           {/* Tarjeta del Usuario Paciente */}
           <Card className="border-0 shadow-sm rounded-4 border-top border-4 border-primary">
             <Card.Body className="p-4">
-              <h6 className="fw-bold text-muted text-uppercase mb-3">👤 Paciente Atendido</h6>
+              <h6 className="fw-bold text-muted text-uppercase mb-3">👤 Usuario Atendido</h6>
               <h4 className="fw-bolder mb-1">{ficha.participants?.nombre} {ficha.participants?.apellido}</h4>
               <p className="text-muted fw-bold mb-3">RUT: {ficha.participants?.rut || 'Sin registrar'}</p>
-              
+
               <div className="small text-secondary">
                 <p className="mb-1"><strong>Nacimiento:</strong> {ficha.participants?.fecha_nacimiento || 'N/A'}</p>
                 <p className="mb-1"><strong>Correo:</strong> {ficha.participants?.correo || 'N/A'}</p>
