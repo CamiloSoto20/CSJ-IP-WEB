@@ -57,36 +57,42 @@ const VerFicha = () => {
     return key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
   };
 
-  const descargarWord = async () => {
+const descargarWord = async () => {
     try {
-      // Cargamos el Word (asegúrate de que esté en la carpeta public de tu proyecto React)
       const response = await fetch('/Atencion.docx');
       const content = await response.arrayBuffer();
-
+      
       const zip = new PizZip(content);
       const doc = new Docxtemplater(zip, {
         paragraphLoop: true,
         linebreaks: true,
       });
 
+      // --- NUEVO: FORMATEAR LA FECHA ---
+      let fechaFormateada = '';
+      const fechaCruda = ficha.fecha_creacion || ficha.created_at || ficha.fecha;
+      if (fechaCruda) {
+        // Esto convertirá "2026-10-06T15:42..." a "06-10-2026" (Formato chileno)
+        fechaFormateada = new Date(fechaCruda).toLocaleDateString('es-CL'); 
+      }
+
       // Mapeamos los datos del estado "ficha" hacia las llaves del Word
       doc.render({
-        // Identificación de usuario
         nombre: ficha.participants?.nombre || '',
         apellido: ficha.participants?.apellido || '',
-        fecha: ficha.fecha_creacion || ficha.created_at || '',
+        fecha: fechaFormateada, // Usamos la fecha formateada aquí
         rut: ficha.participants?.rut || '',
         fechaNacimiento: ficha.participants?.fecha_nacimiento || '',
         edad: ficha.edad || '',
         direccion: ficha.direccion || '',
+        // ... (mantén el resto de tus variables de doc.render exactamente igual)
         sistemaSalud: ficha.sistemaSalud || ficha.sistema_salud || '',
         sistemaPrevisional: ficha.sistemaPrevisional || ficha.sistema_previsional || '',
         correo: ficha.participants?.correo || '',
         celular: ficha.participants?.telefono || '',
         nacionalidad: ficha.participants?.nacionalidad || '',
         etnia: ficha.etnia || '',
-
-        // Motivo de la atención
+        
         lineaAtencion: ficha.lineaAtencion || ficha.linea_atencion || '',
         viaDerivacion: ficha.viaDerivacion || ficha.via_derivacion || '',
         materiaEspecifica: ficha.materiaEspecifica || ficha.materia_especifica || '',
@@ -96,8 +102,7 @@ const VerFicha = () => {
         compromisoUsuario: ficha.compromisoUsuario || ficha.compromiso_usuario || '',
         compromisoProfesional: ficha.compromisoProfesional || ficha.compromiso_profesional || '',
         observacionProfesional: ficha.observacionProfesional || ficha.observacion_profesional || '',
-
-        // Seguimiento y Gestiones
+        
         llamadoCantidad: ficha.llamadoCantidad || ficha.llamado_cantidad || '',
         llamadoFecha: ficha.llamadoFecha || ficha.llamado_fecha || '',
         llamadoResultado: ficha.llamadoResultado || ficha.llamado_resultado || '',
@@ -107,14 +112,12 @@ const VerFicha = () => {
         teamsCantidad: ficha.teamsCantidad || ficha.teams_cantidad || '',
         teamsFecha: ficha.teamsFecha || ficha.teams_fecha || '',
         teamsResultado: ficha.teamsResultado || ficha.teams_resultado || '',
-
-        // Cierre / Derivación
+        
         lugarDerivacion: ficha.lugarDerivacion || ficha.lugar_derivacion || '',
         motivoCierre: ficha.motivoCierre || ficha.motivo_cierre || '',
         profesionalDeriva: ficha.profesionalDeriva || ficha.profesional_deriva || '',
         fechaCierre: ficha.fecha_cierre || '',
-
-        // Identificación del Profesional
+        
         profesionalNombre: ficha.perfiles?.nombre || '',
         profesionalCargo: ficha.perfiles?.rol || ''
       });
@@ -123,9 +126,9 @@ const VerFicha = () => {
         type: 'blob',
         mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
       });
-
-      saveAs(blob, `Ficha_${tipo}_${ficha.participants?.rut || 'paciente'}.docx`);
-
+      
+      saveAs(blob, `Ficha_Social_${ficha.participants?.rut || 'paciente'}.docx`);
+      
     } catch (error) {
       console.error("Error al generar el documento:", error);
       alert("Hubo un error al generar el documento Word. Verifica que la plantilla exista en la carpeta public.");
