@@ -244,3 +244,35 @@
 @keyframes slideInDown {
   to { transform: translateY(0); }
 }
+
+
+/* Correcciones estructurales para el botón Volver y el formulario */
+.login-form-wrapper {
+  max-width: 400px;
+  width: 100%;
+  margin: 0 auto;
+  position: relative; /* Clave para el posicionamiento */
+  padding-top: 2rem;  /* Esto empuja todo el bloque de inicio de sesión hacia abajo */
+}
+
+.btn-volver {
+  font-size: 0.9rem;
+  transition: color 0.2s ease, transform 0.2s ease;
+  position: absolute; /* Para mover el botón libremente */
+  top: 50px;          /* Empuja el botón debajo de la luna (el botón luna está fijo en el top/left general) */
+  left: 0;
+}
+
+/* El resto de las pseudoclases se mantienen igual */
+.btn-volver:hover {
+  color: var(--color-principal, #006A38) !important;
+  transform: translateX(-4px);
+}
+
+.dark-mode .btn-volver {
+  color: #94a3b8 !important;
+}
+
+.dark-mode .btn-volver:hover {
+  color: #f8fafc !important;
+}

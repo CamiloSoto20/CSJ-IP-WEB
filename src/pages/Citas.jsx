@@ -161,7 +161,7 @@ const Citas = () => {
               <thead className="bg-light">
                 <tr>
                   <th className="text-muted border-0 py-3 px-4">FECHA Y HORA</th>
-                  <th className="text-muted border-0 py-3">PACIENTE</th>
+                  <th className="text-muted border-0 py-3">USUARIO</th>
                   <th className="text-muted border-0 py-3">ASIGNACIÓN / DUEÑO</th>
                   <th className="text-muted border-0 py-3">ESTADO</th>
                   <th className="text-muted border-0 py-3 px-4 text-end">ACCIONES</th>

@@ -317,7 +317,7 @@ const Dashboard = () => {
             <Col md={6}>
               <h6 className="fw-bold mb-3 text-success border-bottom pb-2">🩺 Citas Asignadas</h6>
               {citasDelDiaSeleccionado.length === 0 ? (
-                <p className="text-muted small">No hay citas de pacientes para este día.</p>
+                <p className="text-muted small">No hay citas de usuarios para este día.</p>
               ) : (
                 <div className="d-flex flex-column gap-3">
                   {citasDelDiaSeleccionado.map((cita) => (

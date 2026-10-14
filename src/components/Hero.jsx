@@ -1,4 +1,5 @@
 import { Container, Row, Col, Button, Badge } from 'react-bootstrap';
+import imagenclinica from '../assets/e45e6df4-79f7-4895-9abd-957b5da27003.jpg'; // Asegúrate de que la ruta sea correcta
 
 const Hero = () => {
   return (
@@ -32,7 +33,7 @@ const Hero = () => {
           <Col lg={6}>
             <div className="position-relative">
               <img 
-                src="/images/image.jpg" 
+                src={imagenclinica} 
                 alt="Equipo Clínica Socio Jurídica" 
                 className="img-fluid rounded-4 shadow-lg w-100"
                 style={{ objectFit: 'cover', minHeight: '450px' }}

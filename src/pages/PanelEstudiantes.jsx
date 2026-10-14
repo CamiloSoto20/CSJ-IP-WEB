@@ -56,7 +56,6 @@ const PanelEstudiante = () => {
           supabase.from('appointments').select('*', { count: 'exact', head: true }),
           supabase.from('talks').select('*', { count: 'exact', head: true }),
           supabase.from('perfiles').select('id, nombre, estado, created_at, rol').neq('id', userId).order('created_at', { ascending: false }).limit(6),
-          // CAMBIO: Aseguramos traer nombre y paciente para el recordatorio
           supabase.from('appointments').select('id, fecha_cita, hora_cita, estado, nombre, rut').eq('estudiante_id', userId),
           supabase.from('information').select('*').in('categoria', ['IMPORTANTE', 'Salida', 'Recordatorio']).order('fecha_publicacion', { ascending: false }).limit(5)
         ]);

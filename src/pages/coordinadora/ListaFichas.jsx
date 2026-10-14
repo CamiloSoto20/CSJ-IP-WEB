@@ -56,7 +56,7 @@ const ListaFichas = () => {
       ].sort((a, b) => b.timestamp - a.timestamp);
 
       setFichas(combinadas);
-      setFichasFiltradas(combinadas); // Inicializamos el estado filtrado
+      setFichasFiltradas(combinadas);
     } catch (error) {
       console.error('Error general al obtener fichas:', error.message);
     } finally {
@@ -80,11 +80,9 @@ const ListaFichas = () => {
     };
   }, []);
 
-  // Lógica de Filtrado y Ordenamiento
   useEffect(() => {
     let result = [...fichas];
 
-    // 1. Filtrar por Paciente
     if (filtroPaciente.trim() !== '') {
       const searchTerm = filtroPaciente.toLowerCase();
       result = result.filter(ficha => {
@@ -93,12 +91,10 @@ const ListaFichas = () => {
       });
     }
 
-    // 2. Filtrar por Tipo de Ficha
     if (filtroTipo !== '') {
       result = result.filter(ficha => ficha.tipoEspecifico === filtroTipo);
     }
 
-    // 3. Ordenar por Fecha
     if (ordenFecha === 'asc') {
       result.sort((a, b) => a.timestamp - b.timestamp);
     } else {
@@ -115,7 +111,6 @@ const ListaFichas = () => {
     }
 
     const dataAExportar = fichasFiltradas.map(ficha => {
-      // Determinar estado textual
       let estadoTxt = 'Activo';
       if (ficha.tipoEspecifico === 'Recopilación Info.' || ficha.tipoEspecifico === 'Visita Domiciliaria') {
         estadoTxt = 'Registrada';
@@ -141,7 +136,6 @@ const ListaFichas = () => {
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "Registro de Fichas");
     
-    // Auto-ajustar ancho de columnas básico
     const wscols = [
       {wch: 15}, {wch: 10}, {wch: 25}, {wch: 15}, {wch: 30}, 
       {wch: 30}, {wch: 15}, {wch: 15}, {wch: 15}, {wch: 40}
@@ -208,7 +202,6 @@ const ListaFichas = () => {
         </div>
       </div>
 
-      {/* PANEL DE FILTROS */}
       <Card className="border-0 shadow-sm mb-4 bg-light">
         <Card.Body className="p-3">
           <Row className="g-3 align-items-center">
@@ -328,7 +321,7 @@ const ListaFichas = () => {
                             className="fw-bold"
                             onClick={() => handleVerDetalles(ficha)}
                           >
-                            Ver Detalles &rarr;
+                            Gestionar &rarr;
                           </Button>
                         </td>
                       </tr>
@@ -341,7 +334,6 @@ const ListaFichas = () => {
         </Card.Body>
       </Card>
 
-      {/* MODAL 1: CUADRO DE SELECCIÓN DE TIPO DE FICHA SOCIAL */}
       <Modal show={showTiposFicha} onHide={() => setShowTiposFicha(false)} centered size="lg">
         <Modal.Header closeButton>
           <Modal.Title className="fw-bold fs-5" style={{ color: 'var(--color-principal, #006A38)' }}>
@@ -378,11 +370,10 @@ const ListaFichas = () => {
         </Modal.Body>
       </Modal>
 
-      {/* MODAL 2: DETALLES RÁPIDOS DE LA FICHA */}
       <Modal show={showDetalles} onHide={() => setShowDetalles(false)} centered size="lg">
         <Modal.Header closeButton className={fichaSeleccionada?.area === 'Social' ? 'bg-info bg-opacity-10' : 'bg-warning bg-opacity-10'}>
           <Modal.Title className="fw-bold fs-5 text-uppercase" style={{ color: 'var(--color-principal)' }}>
-            📄 Resumen: {fichaSeleccionada?.tipoEspecifico}
+            📄 Gestión: {fichaSeleccionada?.tipoEspecifico}
           </Modal.Title>
         </Modal.Header>
         
@@ -430,26 +421,47 @@ const ListaFichas = () => {
           </div>
         </Modal.Body>
 
-        <Modal.Footer className="bg-light">
+        <Modal.Footer className="bg-light d-flex justify-content-between">
           <Button variant="outline-secondary" className="fw-bold" onClick={() => setShowDetalles(false)}>
             Cerrar Resumen
           </Button>
-          <Button 
-            style={{ backgroundColor: 'var(--color-principal)', border: 'none' }}
-            className="fw-bold px-4 shadow-sm"
-            onClick={() => {
-              let rutaTipo = '';
-              if (fichaSeleccionada?.tipoEspecifico === 'Atención Social') rutaTipo = 'social';
-              else if (fichaSeleccionada?.tipoEspecifico === 'Visita Domiciliaria') rutaTipo = 'visita';
-              else if (fichaSeleccionada?.tipoEspecifico === 'Recopilación Info.') rutaTipo = 'recopilacion';
-              else if (fichaSeleccionada?.tipoEspecifico === 'Intervención') rutaTipo = 'intervencion';
-              else rutaTipo = 'juridica';
 
-              navigate(`/dashboard/fichas/ver/${rutaTipo}/${fichaSeleccionada.id}`);
-            }}
-          >
-            Abrir Ficha Completa
-          </Button>
+          <div className="d-flex gap-2">
+            <Button 
+              variant="outline-primary"
+              className="fw-bold px-4 shadow-sm bg-white"
+              onClick={() => {
+                let rutaTipo = '';
+                if (fichaSeleccionada?.tipoEspecifico === 'Atención Social') rutaTipo = 'social';
+                else if (fichaSeleccionada?.tipoEspecifico === 'Visita Domiciliaria') rutaTipo = 'visita';
+                else if (fichaSeleccionada?.tipoEspecifico === 'Recopilación Info.') rutaTipo = 'recopilacion';
+                else if (fichaSeleccionada?.tipoEspecifico === 'Intervención') rutaTipo = 'intervencion';
+                else rutaTipo = 'juridica';
+
+                // URL Para editar (Ej: /dashboard/fichas/editar/social/123)
+                navigate(`/dashboard/fichas/editar/${rutaTipo}/${fichaSeleccionada.id}`);
+              }}
+            >
+              ✏️ Editar Ficha
+            </Button>
+            
+            <Button 
+              style={{ backgroundColor: 'var(--color-principal)', border: 'none' }}
+              className="fw-bold px-4 shadow-sm"
+              onClick={() => {
+                let rutaTipo = '';
+                if (fichaSeleccionada?.tipoEspecifico === 'Atención Social') rutaTipo = 'social';
+                else if (fichaSeleccionada?.tipoEspecifico === 'Visita Domiciliaria') rutaTipo = 'visita';
+                else if (fichaSeleccionada?.tipoEspecifico === 'Recopilación Info.') rutaTipo = 'recopilacion';
+                else if (fichaSeleccionada?.tipoEspecifico === 'Intervención') rutaTipo = 'intervencion';
+                else rutaTipo = 'juridica';
+
+                navigate(`/dashboard/fichas/ver/${rutaTipo}/${fichaSeleccionada.id}`);
+              }}
+            >
+              👁️ Ver Completa
+            </Button>
+          </div>
         </Modal.Footer>
       </Modal>
 
