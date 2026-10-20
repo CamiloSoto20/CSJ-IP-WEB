@@ -1,109 +1,203 @@
-import { useState } from 'react';
-import { Modal, Form, Button, Row, Col, Spinner, Alert } from 'react-bootstrap';
-import { supabase } from '../lib/supabase';
+import { useState, useEffect } from 'react';
+import { Modal, Form, Button, Row, Col, Spinner } from 'react-bootstrap';
+import { supabase } from '../lib/supabase'; // Ajusta la ruta a tu configuración de supabase si está en otra carpeta
 
 const AppointmentModal = ({ show, handleClose }) => {
-  const [formData, setFormData] = useState({
-    rut: '', nombre: '', correo: '', telefono: '', fecha_cita: '', hora_cita: ''
-  });
-  const [loading, setLoading] = useState(false);
-  const [success, setSuccess] = useState(false);
-  const [errorMsg, setErrorMsg] = useState('');
+  // 1. Obtener Fecha Actual local en formato YYYY-MM-DD
+  const obtenerFechaActual = () => {
+    const hoy = new Date();
+    const offset = hoy.getTimezoneOffset();
+    const fechaLocal = new Date(hoy.getTime() - offset * 60 * 1000);
+    return fechaLocal.toISOString().split('T')[0];
+  };
 
-  const handleChange = (e) => setFormData({ ...formData, [e.target.name]: e.target.value });
+  // 2. Obtener Hora Actual local en formato HH:MM
+  const obtenerHoraActual = () => {
+    const ahora = new Date();
+    const horas = String(ahora.getHours()).padStart(2, '0');
+    const minutos = String(ahora.getMinutes()).padStart(2, '0');
+    return `${horas}:${minutos}`;
+  };
+
+  const [fechaMinima, setFechaMinima] = useState(obtenerFechaActual());
+  const [saving, setSaving] = useState(false);
+
+  const [formData, setFormData] = useState({
+    nombre: '',
+    rut: '',
+    telefono: '',
+    correo: '',
+    fecha_cita: obtenerFechaActual(),
+    hora_cita: obtenerHoraActual(),
+    motivo: ''
+  });
+
+  // Cada vez que se abre el modal, actualiza la fecha y la hora sugerida al momento actual
+  useEffect(() => {
+    if (show) {
+      const hoy = obtenerFechaActual();
+      const ahora = obtenerHoraActual();
+      setFechaMinima(hoy);
+      setFormData((prev) => ({
+        ...prev,
+        fecha_cita: prev.fecha_cita || hoy,
+        hora_cita: ahora
+      }));
+    }
+  }, [show]);
+
+  // 3. Formateador de RUT con límite estricto (máx. 9 caracteres limpios = 12 con puntos y guion)
+  const formatRUT = (rut) => {
+    // Limpia todo lo que no sea número o K y corta en máximo 9 caracteres
+    const cleanRut = rut.replace(/[^0-9kK]/g, '').toUpperCase().slice(0, 9);
+    if (!cleanRut) return '';
+    if (cleanRut.length <= 1) return cleanRut;
+    
+    const dv = cleanRut.slice(-1);
+    const rutBody = cleanRut.slice(0, -1).replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+    return `${rutBody}-${dv}`;
+  };
+
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    if (name === 'rut') {
+      setFormData({ ...formData, rut: formatRUT(value) });
+    } else {
+      setFormData({ ...formData, [name]: value });
+    }
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setLoading(true);
-    setErrorMsg('');
 
+    // Validación extra por seguridad: que el RUT tenga al menos formato mínimo válido
+    if (formData.rut.length < 11) {
+      alert('Por favor, ingrese un RUT válido completo.');
+      return;
+    }
+
+    setSaving(true);
     try {
-      const { error } = await supabase.from('appointments').insert([formData]);
+      const { error } = await supabase.from('appointments').insert([
+        {
+          nombre: formData.nombre,
+          rut: formData.rut,
+          telefono: formData.telefono,
+          fecha_cita: formData.fecha_cita,
+          hora_cita: formData.hora_cita,
+          estado: 'Pendiente'
+        }
+      ]);
+
       if (error) throw error;
-      
-      setSuccess(true);
-      setTimeout(() => {
-        setSuccess(false);
-        setFormData({ rut: '', nombre: '', correo: '', telefono: '', fecha_cita: '', hora_cita: '' });
-        handleClose();
-      }, 3000);
+
+      alert('¡Solicitud de cita enviada con éxito! Nos pondremos en contacto pronto.');
+      setFormData({
+        nombre: '',
+        rut: '',
+        telefono: '',
+        correo: '',
+        fecha_cita: obtenerFechaActual(),
+        hora_cita: obtenerHoraActual(),
+        motivo: ''
+      });
+      handleClose();
     } catch (error) {
-      console.error(error);
-      setErrorMsg('Ocurrió un error al enviar tu solicitud. Inténtalo de nuevo.');
+      console.error('Error al agendar cita:', error.message);
+      alert('Hubo un error al agendar la cita: ' + error.message);
     } finally {
-      setLoading(false);
+      setSaving(false);
     }
   };
 
   return (
-    <Modal show={show} onHide={handleClose} size="lg" centered>
-      <Modal.Header closeButton>
-        <Modal.Title style={{ color: 'var(--color-principal)', fontWeight: 'bold' }}>
-          Agendar una cita
-        </Modal.Title>
+    <Modal show={show} onHide={handleClose} centered>
+      <Modal.Header closeButton style={{ backgroundColor: 'var(--color-principal, #006A38)', color: 'white' }}>
+        <Modal.Title className="fw-bold fs-5">📅 Agendar Cita de Atención</Modal.Title>
       </Modal.Header>
+
       <Modal.Body className="p-4">
-        {success ? (
-          <Alert variant="success" className="text-center">
-            ¡Tu solicitud ha sido enviada con éxito! Nos contactaremos contigo pronto.
-          </Alert>
-        ) : (
-          <Form onSubmit={handleSubmit}>
-            {errorMsg && <Alert variant="danger">{errorMsg}</Alert>}
-            
-            <h6 className="fw-bold mb-3 text-muted">Datos de Contacto</h6>
-            <Row className="mb-3">
-              <Col md={6}>
-                <Form.Group className="mb-3">
-                  <Form.Label className="small fw-bold">RUT</Form.Label>
-                  <Form.Control name="rut" value={formData.rut} onChange={handleChange} placeholder="Ej: 12345678-9" required />
-                </Form.Group>
-              </Col>
-              <Col md={6}>
-                <Form.Group className="mb-3">
-                  <Form.Label className="small fw-bold">Nombre completo</Form.Label>
-                  <Form.Control name="nombre" value={formData.nombre} onChange={handleChange} required />
-                </Form.Group>
-              </Col>
-            </Row>
-            <Row className="mb-4">
-              <Col md={6}>
-                <Form.Group className="mb-3">
-                  <Form.Label className="small fw-bold">Correo electrónico</Form.Label>
-                  <Form.Control type="email" name="correo" value={formData.correo} onChange={handleChange} placeholder="ejemplo@correo.com" required />
-                </Form.Group>
-              </Col>
-              <Col md={6}>
-                <Form.Group className="mb-3">
-                  <Form.Label className="small fw-bold">Teléfono</Form.Label>
-                  <Form.Control type="tel" name="telefono" value={formData.telefono} onChange={handleChange} placeholder="+56 9 1234 5678" required />
-                </Form.Group>
-              </Col>
-            </Row>
+        <Form onSubmit={handleSubmit}>
+          <Form.Group className="mb-3">
+            <Form.Label className="fw-bold small text-muted">Nombre Completo</Form.Label>
+            <Form.Control
+              type="text"
+              name="nombre"
+              placeholder="Ej: Juan Pérez González"
+              value={formData.nombre}
+              onChange={handleChange}
+              required
+            />
+          </Form.Group>
 
-            <h6 className="fw-bold mb-3 text-muted">Preferencia de Horario</h6>
-            <Row className="mb-4">
-              <Col md={6}>
-                <Form.Group className="mb-3">
-                  <Form.Label className="small fw-bold">Fecha sugerida</Form.Label>
-                  <Form.Control type="date" name="fecha_cita" value={formData.fecha_cita} onChange={handleChange} required />
-                </Form.Group>
-              </Col>
-              <Col md={6}>
-                <Form.Group className="mb-3">
-                  <Form.Label className="small fw-bold">Hora sugerida</Form.Label>
-                  <Form.Control type="time" name="hora_cita" value={formData.hora_cita} onChange={handleChange} required />
-                </Form.Group>
-              </Col>
-            </Row>
+          <Row className="g-3 mb-3">
+            <Col sm={6}>
+              <Form.Label className="fw-bold small text-muted">RUT</Form.Label>
+              <Form.Control
+                type="text"
+                name="rut"
+                placeholder="12.345.678-9"
+                value={formData.rut}
+                onChange={handleChange}
+                maxLength={12} // Límite visual y de escritura (12 caracteres con puntos y guion)
+                required
+              />
+            </Col>
 
-            <div className="d-grid gap-2">
-              <Button type="submit" style={{ backgroundColor: 'var(--color-principal)', borderColor: 'var(--color-principal)' }} disabled={loading}>
-                {loading ? <Spinner animation="border" size="sm" /> : 'Enviar solicitud de cita'}
-              </Button>
-            </div>
-          </Form>
-        )}
+            <Col sm={6}>
+              <Form.Label className="fw-bold small text-muted">Teléfono / Celular</Form.Label>
+              <Form.Control
+                type="tel"
+                name="telefono"
+                placeholder="+56 9 1234 5678"
+                value={formData.telefono}
+                onChange={handleChange}
+                maxLength={15}
+                required
+              />
+            </Col>
+          </Row>
+
+          <Row className="g-3 mb-4">
+            <Col sm={6}>
+              <Form.Label className="fw-bold small text-muted">Fecha de la Cita</Form.Label>
+              <Form.Control
+                type="date"
+                name="fecha_cita"
+                value={formData.fecha_cita}
+                min={fechaMinima} // Bloquea todos los días anteriores al día actual
+                onChange={handleChange}
+                required
+              />
+            </Col>
+
+            <Col sm={6}>
+              <Form.Label className="fw-bold small text-muted">Hora Sugerida</Form.Label>
+              <Form.Control
+                type="time"
+                name="hora_cita"
+                value={formData.hora_cita} // Inicia con la hora actual y se puede cambiar
+                min={formData.fecha_cita === fechaMinima ? obtenerHoraActual() : undefined} // Si es hoy, sugiere desde la hora actual en adelante
+                onChange={handleChange}
+                required
+              />
+            </Col>
+          </Row>
+
+          <div className="d-flex justify-content-end gap-2">
+            <Button variant="outline-secondary" onClick={handleClose} disabled={saving}>
+              Cancelar
+            </Button>
+            <Button
+              type="submit"
+              className="fw-bold text-white px-4"
+              style={{ backgroundColor: 'var(--color-principal, #006A38)', border: 'none' }}
+              disabled={saving}
+            >
+              {saving ? <Spinner animation="border" size="sm" /> : 'Confirmar Cita'}
+            </Button>
+          </div>
+        </Form>
       </Modal.Body>
     </Modal>
   );
