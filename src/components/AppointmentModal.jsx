@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Modal, Form, Button, Row, Col, Spinner } from 'react-bootstrap';
-import { supabase } from '../lib/supabase'; // Ajusta la ruta a tu configuración de supabase si está en otra carpeta
+import { supabase } from '../lib/supabase';
 
 const AppointmentModal = ({ show, handleClose }) => {
   // 1. Obtener Fecha Actual local en formato YYYY-MM-DD
@@ -29,10 +29,8 @@ const AppointmentModal = ({ show, handleClose }) => {
     correo: '',
     fecha_cita: obtenerFechaActual(),
     hora_cita: obtenerHoraActual(),
-    motivo: ''
   });
 
-  // Cada vez que se abre el modal, actualiza la fecha y la hora sugerida al momento actual
   useEffect(() => {
     if (show) {
       const hoy = obtenerFechaActual();
@@ -46,9 +44,7 @@ const AppointmentModal = ({ show, handleClose }) => {
     }
   }, [show]);
 
-  // 3. Formateador de RUT con límite estricto (máx. 9 caracteres limpios = 12 con puntos y guion)
   const formatRUT = (rut) => {
-    // Limpia todo lo que no sea número o K y corta en máximo 9 caracteres
     const cleanRut = rut.replace(/[^0-9kK]/g, '').toUpperCase().slice(0, 9);
     if (!cleanRut) return '';
     if (cleanRut.length <= 1) return cleanRut;
@@ -70,7 +66,6 @@ const AppointmentModal = ({ show, handleClose }) => {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    // Validación extra por seguridad: que el RUT tenga al menos formato mínimo válido
     if (formData.rut.length < 11) {
       alert('Por favor, ingrese un RUT válido completo.');
       return;
@@ -83,6 +78,7 @@ const AppointmentModal = ({ show, handleClose }) => {
           nombre: formData.nombre,
           rut: formData.rut,
           telefono: formData.telefono,
+          correo: formData.correo, // <-- Incluido para cumplir con la restricción de la BD
           fecha_cita: formData.fecha_cita,
           hora_cita: formData.hora_cita,
           estado: 'Pendiente'
@@ -99,7 +95,6 @@ const AppointmentModal = ({ show, handleClose }) => {
         correo: '',
         fecha_cita: obtenerFechaActual(),
         hora_cita: obtenerHoraActual(),
-        motivo: ''
       });
       handleClose();
     } catch (error) {
@@ -139,7 +134,7 @@ const AppointmentModal = ({ show, handleClose }) => {
                 placeholder="12.345.678-9"
                 value={formData.rut}
                 onChange={handleChange}
-                maxLength={12} // Límite visual y de escritura (12 caracteres con puntos y guion)
+                maxLength={12}
                 required
               />
             </Col>
@@ -158,14 +153,26 @@ const AppointmentModal = ({ show, handleClose }) => {
             </Col>
           </Row>
 
-          <Row className="g-3 mb-4">
+          <Form.Group className="mb-3">
+            <Form.Label className="fw-bold small text-muted">Correo Electrónico</Form.Label>
+            <Form.Control
+              type="email"
+              name="correo"
+              placeholder="correo@ejemplo.com"
+              value={formData.correo}
+              onChange={handleChange}
+              required
+            />
+          </Form.Group>
+
+          <Row className="g-3 mb-3">
             <Col sm={6}>
               <Form.Label className="fw-bold small text-muted">Fecha de la Cita</Form.Label>
               <Form.Control
                 type="date"
                 name="fecha_cita"
                 value={formData.fecha_cita}
-                min={fechaMinima} // Bloquea todos los días anteriores al día actual
+                min={fechaMinima}
                 onChange={handleChange}
                 required
               />
@@ -176,8 +183,8 @@ const AppointmentModal = ({ show, handleClose }) => {
               <Form.Control
                 type="time"
                 name="hora_cita"
-                value={formData.hora_cita} // Inicia con la hora actual y se puede cambiar
-                min={formData.fecha_cita === fechaMinima ? obtenerHoraActual() : undefined} // Si es hoy, sugiere desde la hora actual en adelante
+                value={formData.hora_cita}
+                min={formData.fecha_cita === fechaMinima ? obtenerHoraActual() : undefined}
                 onChange={handleChange}
                 required
               />

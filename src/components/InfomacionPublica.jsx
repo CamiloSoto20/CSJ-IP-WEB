@@ -9,7 +9,6 @@ const InformacionPublica = () => {
   useEffect(() => {
     const fetchPublicaciones = async () => {
       try {
-        // Filtramos para que SOLO se muestren noticias públicas y NUNCA avisos internos de estudiantes
         const { data, error } = await supabase
           .from('information')
           .select('*')
@@ -64,7 +63,6 @@ const InformacionPublica = () => {
                 }}
               >
                 <Card.Body className="d-flex flex-column p-4">
-                  {/* Encabezado: Categoría y Fecha */}
                   <div className="d-flex justify-content-between align-items-center mb-3">
                     <Badge 
                       bg={pub.categoria === 'Noticia' ? 'success' : 'primary'} 
@@ -78,7 +76,6 @@ const InformacionPublica = () => {
                     </small>
                   </div>
 
-                  {/* Título de la Publicación */}
                   <Card.Title 
                     className="fw-bold mb-3" 
                     style={{ fontSize: '1.25rem', color: 'var(--color-principal, #006A38)', lineHeight: '1.4' }}
@@ -86,7 +83,6 @@ const InformacionPublica = () => {
                     {pub.titulo}
                   </Card.Title>
 
-                  {/* Descripción visible directamente sin botón "Leer más" */}
                   <div 
                     className="text-secondary flex-grow-1 mb-3" 
                     style={{ 
@@ -98,7 +94,6 @@ const InformacionPublica = () => {
                     {pub.descripcion_corta}
                   </div>
 
-                  {/* Pie de tarjeta con Autor / Fuente si existen */}
                   {(pub.autor_nombre || pub.fuente || pub.contenido_completo) && (
                     <div className="mt-auto pt-3 border-top d-flex flex-column gap-1 bg-light p-3 rounded-3">
                       {pub.autor_nombre && (

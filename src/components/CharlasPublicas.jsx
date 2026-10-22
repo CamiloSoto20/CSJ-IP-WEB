@@ -113,7 +113,6 @@ const CharlasPublicas = () => {
           ))}
         </Row>
 
-        {/* Modal de Inscripción */}
         <Modal show={showModal} onHide={handleClose} centered>
           <Modal.Header closeButton className="border-0 pb-0">
             <Modal.Title style={{ color: 'var(--color-principal)', fontWeight: '800' }}>
