@@ -162,7 +162,7 @@ const FichaRecopilacion = () => {
               <Col md={5}><Form.Label className="small fw-bold text-muted">Apellidos</Form.Label><Form.Control name="apellido" placeholder="Apellidos del usuario" onChange={handleChange} required /></Col>
               <Col md={2}>
                  <Form.Label className="small fw-bold text-muted">Fecha de Atención</Form.Label>
-                 <Form.Control type="date" name="fecha" value={formData.fecha} readOnly className="fw-bold bg-light" />
+                 <Form.Control type="date" name="fecha" value={formData.fecha} onChange={handleChange} />
               </Col>
               
               <Col md={3}><Form.Label className="small fw-bold text-muted">Cédula de Identidad</Form.Label><Form.Control name="rut" value={formData.rut} placeholder="12.345.678-9" onChange={handleChange} required maxLength={12} className="fw-bold" /></Col>

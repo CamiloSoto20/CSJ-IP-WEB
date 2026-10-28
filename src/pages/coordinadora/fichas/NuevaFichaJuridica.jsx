@@ -146,7 +146,7 @@ const NuevaFichaJuridica = () => {
               </Col>
               <Col md={2}>
                 <Form.Label className="small fw-bold text-muted">Fecha de Atención</Form.Label>
-                <Form.Control type="date" name="fecha" value={formData.fecha} readOnly className="bg-light fw-bold" />
+                <Form.Control type="date" name="fecha" value={formData.fecha} onChange={handleChange} />
               </Col>
 
               <Col md={3}>

@@ -16,6 +16,7 @@ import RecuperarPassword from './pages/recuperar/RecuperarPassword';
 // Nuevas importaciones de Coordinadora
 import Estudiantes from './pages/coordinadora/Estudiantes';
 import PerfilEstudiante from './pages/coordinadora/PerfilEstudiante';
+import RegistroAtencion from './pages/coordinadora/RegistroAtencion';
 
 // Formularios de Fichas
 import NuevaFichaSocial from './pages/coordinadora/fichas/NuevaFichaSocial';
@@ -53,13 +54,14 @@ function App() {
         <Route path="/panel-estudiante/fichas/nueva-social" element={<ProtectedRoute allowedRoles={['estudiante']}><NuevaFichaSocial /></ProtectedRoute>} />
         <Route path="/panel-estudiante/fichas/recopilacion" element={<ProtectedRoute allowedRoles={['estudiante']}><FichaRecopilacion /></ProtectedRoute>} />
         <Route path="/panel-estudiante/fichas/visita" element={<ProtectedRoute allowedRoles={['estudiante']}><FichaVisitaDomiciliaria /></ProtectedRoute>} />
-        <Route path="/panel-estudiante/fichas/intervencion" element={<ProtectedRoute allowedRoles={['estudiante']}><FichaIntervencion /></ProtectedRoute>} /> 
+        <Route path="/panel-estudiante/fichas/intervencion" element={<ProtectedRoute allowedRoles={['estudiante']}><FichaIntervencion /></ProtectedRoute>} />
         <Route path="/panel-estudiante/fichas/nueva-juridica" element={<ProtectedRoute allowedRoles={['estudiante']}><NuevaFichaJuridica /></ProtectedRoute>} />
         <Route path="/panel-estudiante/fichas/ver/:tipo/:id" element={<ProtectedRoute allowedRoles={['estudiante']}><VerFicha /></ProtectedRoute>} />
         <Route path="/panel-estudiante/citas" element={<ProtectedRoute allowedRoles={['estudiante']}><CitasEstudiante /></ProtectedRoute>} />
         <Route path="/panel-estudiante/charlas" element={<ProtectedRoute allowedRoles={['estudiante']}><CharlasEstudiante /></ProtectedRoute>} />
         <Route path="/panel-estudiante/informacion" element={<ProtectedRoute allowedRoles={['estudiante']}><InformacionEstudiante /></ProtectedRoute>} />
-        
+        <Route path="/panel-estudiante/registro-atencion" element={<RegistroAtencion />} />
+
         {/* Rutas de Edición para Estudiantes */}
         <Route path="/panel-estudiante/fichas/editar/social/:id" element={<ProtectedRoute allowedRoles={['estudiante']}><NuevaFichaSocial /></ProtectedRoute>} />
         <Route path="/panel-estudiante/fichas/editar/intervencion/:id" element={<ProtectedRoute allowedRoles={['estudiante']}><FichaIntervencion /></ProtectedRoute>} />
@@ -79,11 +81,12 @@ function App() {
           <Route path="/dashboard/informacion" element={<Informacion />} />
           <Route path="/dashboard/estudiantes" element={<Estudiantes />} />
           <Route path="/dashboard/estudiantes/:id" element={<PerfilEstudiante />} />
-          
+          <Route path="/dashboard/registro-atencion" element={<RegistroAtencion />} />
+
           {/* Fichas - Listado y Visor */}
           <Route path="/dashboard/fichas" element={<ListaFichas />} />
           <Route path="/dashboard/fichas/ver/:tipo/:id" element={<VerFicha />} />
-          
+
           {/* Fichas - Creación */}
           <Route path="/dashboard/fichas/nueva-social" element={<NuevaFichaSocial />} />
           <Route path="/dashboard/fichas/recopilacion" element={<FichaRecopilacion />} />

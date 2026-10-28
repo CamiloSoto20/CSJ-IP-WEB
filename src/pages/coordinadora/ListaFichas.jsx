@@ -8,15 +8,15 @@ const ListaFichas = () => {
   const [fichas, setFichas] = useState([]);
   const [fichasFiltradas, setFichasFiltradas] = useState([]);
   const [loading, setLoading] = useState(true);
-  
+
   const [fichaSeleccionada, setFichaSeleccionada] = useState(null);
   const [showDetalles, setShowDetalles] = useState(false);
   const [showTiposFicha, setShowTiposFicha] = useState(false);
-  
+
   const [filtroPaciente, setFiltroPaciente] = useState('');
   const [filtroTipo, setFiltroTipo] = useState('');
   const [ordenFecha, setOrdenFecha] = useState('desc');
-  
+
   const navigate = useNavigate();
 
   const fetchFichas = async () => {
@@ -34,7 +34,7 @@ const ListaFichas = () => {
           ...item,
           area,
           tipoEspecifico,
-          fecha_registro: item[campoFecha], 
+          fecha_registro: item[campoFecha],
           timestamp: new Date(item[campoFecha] || 0).getTime()
         }));
       };
@@ -82,7 +82,7 @@ const ListaFichas = () => {
       });
     }
     if (filtroTipo !== '') result = result.filter(ficha => ficha.tipoEspecifico === filtroTipo);
-    
+
     if (ordenFecha === 'asc') result.sort((a, b) => a.timestamp - b.timestamp);
     else result.sort((a, b) => b.timestamp - a.timestamp);
 
@@ -120,7 +120,7 @@ const ListaFichas = () => {
     const worksheet = XLSX.utils.json_to_sheet(dataAExportar);
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "Registro de Fichas");
-    const wscols = [{wch: 15}, {wch: 10}, {wch: 25}, {wch: 15}, {wch: 30}, {wch: 30}, {wch: 15}, {wch: 30}, {wch: 15}, {wch: 15}, {wch: 40}];
+    const wscols = [{ wch: 15 }, { wch: 10 }, { wch: 25 }, { wch: 15 }, { wch: 30 }, { wch: 30 }, { wch: 15 }, { wch: 30 }, { wch: 15 }, { wch: 15 }, { wch: 40 }];
     worksheet['!cols'] = wscols;
     XLSX.writeFile(workbook, `Registro_Fichas_${new Date().toISOString().split('T')[0]}.xlsx`);
   };
@@ -136,7 +136,7 @@ const ListaFichas = () => {
   };
 
   const renderEstado = (ficha) => {
-    if (ficha.tipoEspecifico === 'Recopilación Info.' || ficha.tipoEspecifico === 'Visita Domiciliaria') return <Badge bg="success" className="px-3 py-2">Registrada</Badge>; 
+    if (ficha.tipoEspecifico === 'Recopilación Info.' || ficha.tipoEspecifico === 'Visita Domiciliaria') return <Badge bg="success" className="px-3 py-2">Registrada</Badge>;
     if (ficha.fecha_cierre) return <Badge bg="secondary" className="px-3 py-2">Cerrado</Badge>;
     return <Badge bg="primary" className="px-3 py-2">Activo</Badge>;
   };
@@ -155,12 +155,14 @@ const ListaFichas = () => {
               <span>🗄️</span> Base De datos
             </Dropdown.Toggle>
             <Dropdown.Menu className="shadow-sm">
-              <Dropdown.Item href="#">REGISTRO DE ATENCIÓN</Dropdown.Item>
+              <Dropdown.Item onClick={() => navigate('/dashboard/registro-atencion')}>
+                REGISTRO DE ATENCIÓN
+              </Dropdown.Item>
             </Dropdown.Menu>
           </Dropdown>
 
           <Button variant="outline-success" className="fw-bold shadow-sm d-flex align-items-center gap-2" onClick={exportarAExcel} disabled={fichasFiltradas.length === 0}>
-             <span>📊</span> Descargar Excel
+            <span>📊</span> Descargar Excel
           </Button>
           <Button style={{ backgroundColor: '#0dcaf0', border: 'none', color: '#000' }} className="fw-bold shadow-sm ms-2" onClick={() => navigate('/dashboard/fichas/nueva-juridica')}>
             + Ficha Jurídica
@@ -175,10 +177,10 @@ const ListaFichas = () => {
         <Card.Body className="p-3">
           <Row className="g-3 align-items-center">
             <Col md={5}>
-               <InputGroup>
-                 <InputGroup.Text className="bg-white border-end-0">🔍</InputGroup.Text>
-                 <Form.Control type="text" placeholder="Buscar paciente..." value={filtroPaciente} onChange={(e) => setFiltroPaciente(e.target.value)} className="border-start-0 ps-0" />
-               </InputGroup>
+              <InputGroup>
+                <InputGroup.Text className="bg-white border-end-0">🔍</InputGroup.Text>
+                <Form.Control type="text" placeholder="Buscar paciente..." value={filtroPaciente} onChange={(e) => setFiltroPaciente(e.target.value)} className="border-start-0 ps-0" />
+              </InputGroup>
             </Col>
             <Col md={4}>
               <Form.Select value={filtroTipo} onChange={(e) => setFiltroTipo(e.target.value)} className="fw-medium">
@@ -191,10 +193,10 @@ const ListaFichas = () => {
               </Form.Select>
             </Col>
             <Col md={3}>
-               <Form.Select value={ordenFecha} onChange={(e) => setOrdenFecha(e.target.value)} className="fw-medium">
-                 <option value="desc">Más recientes primero</option>
-                 <option value="asc">Más antiguos primero</option>
-               </Form.Select>
+              <Form.Select value={ordenFecha} onChange={(e) => setOrdenFecha(e.target.value)} className="fw-medium">
+                <option value="desc">Más recientes primero</option>
+                <option value="asc">Más antiguos primero</option>
+              </Form.Select>
             </Col>
           </Row>
         </Card.Body>
@@ -279,7 +281,7 @@ const ListaFichas = () => {
         <Modal.Header closeButton className={fichaSeleccionada?.area === 'Social' ? 'bg-info bg-opacity-10' : 'bg-warning bg-opacity-10'}>
           <Modal.Title className="fw-bold fs-5 text-uppercase" style={{ color: 'var(--color-principal)' }}>📄 Gestión: {fichaSeleccionada?.tipoEspecifico}</Modal.Title>
         </Modal.Header>
-        
+
         <Modal.Body className="p-0">
           <div className="bg-light p-4 border-bottom">
             <Row className="g-4">
@@ -320,23 +322,23 @@ const ListaFichas = () => {
           <Button variant="outline-secondary" className="fw-bold" onClick={() => setShowDetalles(false)}>Cerrar Resumen</Button>
           <div className="d-flex gap-2">
             <Button variant="outline-primary" className="fw-bold px-4 shadow-sm bg-white" onClick={() => {
-                let rutaTipo = '';
-                if (fichaSeleccionada?.tipoEspecifico === 'Atención Social') rutaTipo = 'social';
-                else if (fichaSeleccionada?.tipoEspecifico === 'Visita Domiciliaria') rutaTipo = 'visita';
-                else if (fichaSeleccionada?.tipoEspecifico === 'Recopilación Info.') rutaTipo = 'recopilacion';
-                else if (fichaSeleccionada?.tipoEspecifico === 'Intervención') rutaTipo = 'intervencion';
-                else rutaTipo = 'juridica';
-                navigate(`/dashboard/fichas/editar/${rutaTipo}/${fichaSeleccionada.id}`);
-              }}>✏️ Editar Ficha</Button>
+              let rutaTipo = '';
+              if (fichaSeleccionada?.tipoEspecifico === 'Atención Social') rutaTipo = 'social';
+              else if (fichaSeleccionada?.tipoEspecifico === 'Visita Domiciliaria') rutaTipo = 'visita';
+              else if (fichaSeleccionada?.tipoEspecifico === 'Recopilación Info.') rutaTipo = 'recopilacion';
+              else if (fichaSeleccionada?.tipoEspecifico === 'Intervención') rutaTipo = 'intervencion';
+              else rutaTipo = 'juridica';
+              navigate(`/dashboard/fichas/editar/${rutaTipo}/${fichaSeleccionada.id}`);
+            }}>✏️ Editar Ficha</Button>
             <Button style={{ backgroundColor: 'var(--color-principal)', border: 'none' }} className="fw-bold px-4 shadow-sm" onClick={() => {
-                let rutaTipo = '';
-                if (fichaSeleccionada?.tipoEspecifico === 'Atención Social') rutaTipo = 'social';
-                else if (fichaSeleccionada?.tipoEspecifico === 'Visita Domiciliaria') rutaTipo = 'visita';
-                else if (fichaSeleccionada?.tipoEspecifico === 'Recopilación Info.') rutaTipo = 'recopilacion';
-                else if (fichaSeleccionada?.tipoEspecifico === 'Intervención') rutaTipo = 'intervencion';
-                else rutaTipo = 'juridica';
-                navigate(`/dashboard/fichas/ver/${rutaTipo}/${fichaSeleccionada.id}`);
-              }}>👁️ Ver Completa</Button>
+              let rutaTipo = '';
+              if (fichaSeleccionada?.tipoEspecifico === 'Atención Social') rutaTipo = 'social';
+              else if (fichaSeleccionada?.tipoEspecifico === 'Visita Domiciliaria') rutaTipo = 'visita';
+              else if (fichaSeleccionada?.tipoEspecifico === 'Recopilación Info.') rutaTipo = 'recopilacion';
+              else if (fichaSeleccionada?.tipoEspecifico === 'Intervención') rutaTipo = 'intervencion';
+              else rutaTipo = 'juridica';
+              navigate(`/dashboard/fichas/ver/${rutaTipo}/${fichaSeleccionada.id}`);
+            }}>👁️ Ver Completa</Button>
           </div>
         </Modal.Footer>
       </Modal>

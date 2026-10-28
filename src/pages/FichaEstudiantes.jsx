@@ -88,13 +88,16 @@ const FichaEstudiantes = () => {
             </h2>
             <div className="d-flex gap-2">
               
-              {/* DROPDOWN BASE DE DATOS - SOLO REGISTRO DE ATENCION */}
+              {/* DROPDOWN BASE DE DATOS */}
               <Dropdown>
                 <Dropdown.Toggle variant="outline-primary" className="fw-bold shadow-sm d-flex align-items-center gap-2">
                   <span>🗄️</span> Base De datos
                 </Dropdown.Toggle>
                 <Dropdown.Menu className="shadow-sm">
-                  <Dropdown.Item href="#">REGISTRO DE ATENCIÓN</Dropdown.Item>
+                  {/* AQUÍ SE CORRIGIÓ LA RUTA PARA EL ESTUDIANTE */}
+                  <Dropdown.Item onClick={() => navigate('/panel-estudiante/registro-atencion')}>
+                    REGISTRO DE ATENCIÓN
+                  </Dropdown.Item>
                 </Dropdown.Menu>
               </Dropdown>
 

@@ -164,7 +164,7 @@ const FichaVisitaDomiciliaria = () => {
               </Col>
               <Col md={2}>
                 <Form.Label className="small fw-bold text-muted">Fecha de la Visita</Form.Label>
-                <Form.Control type="date" name="fechaVisita" value={formData.fechaVisita} readOnly className="bg-light fw-bold" />
+                <Form.Control type="date" name="fechaVisita" value={formData.fechaVisita} onChange={handleChange} />
               </Col>
 
               <Col md={3}>

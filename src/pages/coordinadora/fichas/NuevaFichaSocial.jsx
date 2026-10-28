@@ -9,10 +9,10 @@ const NuevaFichaSocial = () => {
   const location = useLocation();
   const { id } = useParams();
   const { user } = useAuth();
-  
+
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(!!id);
-  
+
   const [perfilActivo, setPerfilActivo] = useState({ nombre: 'Cargando...', rol: '...' });
   const [estudiantes, setEstudiantes] = useState([]);
   const [coEstudianteId, setCoEstudianteId] = useState('');
@@ -21,13 +21,13 @@ const NuevaFichaSocial = () => {
   const fechaActual = new Date().toISOString().split('T')[0];
 
   const [formData, setFormData] = useState({
-    fecha: fechaActual, 
-    nombre: '', apellido: '', rut: '', fechaNacimiento: '', edad: '', direccion: '', 
-    sistemaSalud: '', sistemaPrevisional: '', correo: '', celular: '', 
+    fecha: fechaActual,
+    nombre: '', apellido: '', rut: '', fechaNacimiento: '', edad: '', direccion: '',
+    sistemaSalud: '', sistemaPrevisional: '', correo: '', celular: '',
     nacionalidad: '', etnia: '',
     lineaAtencion: '', viaDerivacion: '', materiaEspecifica: '',
     motivoOpcion: '', // NUEVO: Controla la selección única (asesoramiento, creacionDocumento, otro)
-    asesoramiento: '', creacionDocumento: '', otroMotivo: '', 
+    asesoramiento: '', creacionDocumento: '', otroMotivo: '',
     compromisoUsuario: '', compromisoProfesional: '', observacion: '',
     llamadasCantidad: '', llamadasFechas: '', llamadasResultado: '',
     visitasCantidad: '', visitasFechas: '', visitasResultado: '',
@@ -41,7 +41,7 @@ const NuevaFichaSocial = () => {
         const { data: perfilData } = await supabase.from('perfiles').select('nombre, rol').eq('id', user.id).single();
         if (perfilData) setPerfilActivo(perfilData);
       }
-      
+
       try {
         const { data: estData } = await supabase.from('perfiles').select('id, nombre, rol').order('nombre');
         if (estData) {
@@ -69,7 +69,7 @@ const NuevaFichaSocial = () => {
 
         if (fichaData) {
           const p = fichaData.participants || {};
-          
+
           if (fichaData.co_estudiante_id) {
             setCoEstudianteId(fichaData.co_estudiante_id);
           }
@@ -81,8 +81,8 @@ const NuevaFichaSocial = () => {
           else if (fichaData.otro_motivo && fichaData.otro_motivo !== '') opcion = 'otro';
 
           setFormData({
-            ...formData, 
-            fecha: fichaData.fecha_creacion || fechaActual, 
+            ...formData,
+            fecha: fichaData.fecha_creacion || fechaActual,
             nombre: p.nombre || '',
             apellido: p.apellido || '',
             rut: p.rut || '',
@@ -91,16 +91,16 @@ const NuevaFichaSocial = () => {
             correo: p.correo || '',
             celular: p.telefono || '',
             nacionalidad: p.nacionalidad || '',
-            
+
             lineaAtencion: fichaData.linea_atencion || '',
             viaDerivacion: fichaData.via_derivacion || '',
             materiaEspecifica: fichaData.materia_especifica || '',
-            
+
             motivoOpcion: opcion, // Cargamos la opción marcada
             asesoramiento: fichaData.asesoramiento || '',
             creacionDocumento: fichaData.creacion_documento || '',
             otroMotivo: fichaData.otro_motivo || '',
-            
+
             compromisoUsuario: fichaData.compromiso_usuario || '',
             compromisoProfesional: fichaData.compromiso_profesional || '',
             observacion: fichaData.observacion || '',
@@ -163,7 +163,7 @@ const NuevaFichaSocial = () => {
     }
 
     setSaving(true);
-    
+
     try {
       let { data: participante } = await supabase
         .from('participants')
@@ -174,33 +174,33 @@ const NuevaFichaSocial = () => {
       if (!participante) {
         const { data: nuevoPart, error: errPart } = await supabase
           .from('participants')
-          .insert([{ 
+          .insert([{
             rut: formData.rut, nombre: formData.nombre, apellido: formData.apellido,
-            fecha_nacimiento: formData.fechaNacimiento || null, direccion: formData.direccion, 
-            correo: formData.correo, telefono: formData.celular, nacionalidad: formData.nacionalidad 
+            fecha_nacimiento: formData.fechaNacimiento || null, direccion: formData.direccion,
+            correo: formData.correo, telefono: formData.celular, nacionalidad: formData.nacionalidad
           }])
           .select().single();
         if (errPart) throw errPart;
         participante = nuevoPart;
       } else {
-          await supabase.from('participants').update({
-              nombre: formData.nombre, apellido: formData.apellido,
-              fecha_nacimiento: formData.fechaNacimiento || null, direccion: formData.direccion, 
-              correo: formData.correo, telefono: formData.celular, nacionalidad: formData.nacionalidad 
-          }).eq('id', participante.id);
+        await supabase.from('participants').update({
+          nombre: formData.nombre, apellido: formData.apellido,
+          fecha_nacimiento: formData.fechaNacimiento || null, direccion: formData.direccion,
+          correo: formData.correo, telefono: formData.celular, nacionalidad: formData.nacionalidad
+        }).eq('id', participante.id);
       }
 
       // Guardar una 'X' en la DB dependiendo de qué Radio Button se marcó
       const payloadFicha = {
         participant_id: participante.id,
-        co_estudiante_id: coEstudianteId || null, 
+        co_estudiante_id: coEstudianteId || null,
         linea_atencion: formData.lineaAtencion, via_derivacion: formData.viaDerivacion,
-        materia_especifica: formData.materiaEspecifica, 
-        
+        materia_especifica: formData.materiaEspecifica,
+
         asesoramiento: formData.motivoOpcion === 'asesoramiento' ? 'X' : '',
         creacion_documento: formData.motivoOpcion === 'creacionDocumento' ? 'X' : '',
         otro_motivo: formData.motivoOpcion === 'otro' ? formData.otroMotivo : '',
-        
+
         compromiso_usuario: formData.compromisoUsuario, compromiso_profesional: formData.compromisoProfesional,
         observacion: formData.observacion, llamadas_cantidad: formData.llamadasCantidad,
         llamadas_fechas: formData.llamadasFechas, llamadas_resultado: formData.llamadasResultado,
@@ -212,23 +212,23 @@ const NuevaFichaSocial = () => {
       };
 
       if (id) {
-          const { error: errUpdate } = await supabase
-            .from('social_records')
-            .update(payloadFicha)
-            .eq('id', id);
-          if (errUpdate) throw errUpdate;
-          alert('Ficha Social actualizada exitosamente.');
+        const { error: errUpdate } = await supabase
+          .from('social_records')
+          .update(payloadFicha)
+          .eq('id', id);
+        if (errUpdate) throw errUpdate;
+        alert('Ficha Social actualizada exitosamente.');
       } else {
-          payloadFicha.professional_id = user?.id || null; 
-          const { error: errInsert } = await supabase
-            .from('social_records')
-            .insert([payloadFicha]);
-          if (errInsert) throw errInsert;
-          alert('Ficha Social guardada exitosamente.');
+        payloadFicha.professional_id = user?.id || null;
+        const { error: errInsert } = await supabase
+          .from('social_records')
+          .insert([payloadFicha]);
+        if (errInsert) throw errInsert;
+        alert('Ficha Social guardada exitosamente.');
       }
 
       navigate(rutaBase);
-      
+
     } catch (error) {
       console.error(error);
       alert('Error al procesar la ficha: ' + error.message);
@@ -251,7 +251,7 @@ const NuevaFichaSocial = () => {
       <div className="d-flex justify-content-between align-items-center mb-4">
         <div>
           <h3 className="fw-bold mb-1" style={{ color: 'var(--color-principal, #006A38)' }}>
-             {id ? 'Editar Ficha Social' : 'Ficha de Atención Social'}
+            {id ? 'Editar Ficha Social' : 'Ficha de Atención Social'}
           </h3>
           <p className="text-muted mb-0">{id ? 'Actualice la información del caso' : 'Formulario oficial de atención, seguimiento y cierre'}</p>
         </div>
@@ -269,8 +269,8 @@ const NuevaFichaSocial = () => {
             <Row className="g-3">
               <Col md={5}><Form.Label className="small fw-bold text-muted">Nombres</Form.Label><Form.Control name="nombre" placeholder="Nombres del usuario" value={formData.nombre} onChange={handleChange} required /></Col>
               <Col md={5}><Form.Label className="small fw-bold text-muted">Apellidos</Form.Label><Form.Control name="apellido" placeholder="Apellidos del usuario" value={formData.apellido} onChange={handleChange} required /></Col>
-              <Col md={2}><Form.Label className="small fw-bold text-muted">Fecha de Atención</Form.Label><Form.Control type="date" name="fecha" value={formData.fecha} readOnly className="fw-bold bg-light" /></Col>
-              <Col md={3}><Form.Label className="small fw-bold text-muted">Cédula de Identidad</Form.Label><Form.Control name="rut" value={formData.rut} placeholder="12.345.678-9" onChange={handleChange} required maxLength={12} className="fw-bold" disabled={!!id} title={id ? "El RUT no se puede modificar" : ""}/></Col>
+              <Col md={2}><Form.Label className="small fw-bold text-muted">Fecha de Atención</Form.Label><Form.Control type="date" name="fecha" value={formData.fecha} onChange={handleChange} /></Col>
+              <Col md={3}><Form.Label className="small fw-bold text-muted">Cédula de Identidad</Form.Label><Form.Control name="rut" value={formData.rut} placeholder="12.345.678-9" onChange={handleChange} required maxLength={12} className="fw-bold" disabled={!!id} title={id ? "El RUT no se puede modificar" : ""} /></Col>
               <Col md={3}><Form.Label className="small fw-bold text-muted">Fecha Nacimiento</Form.Label><Form.Control type="date" name="fechaNacimiento" value={formData.fechaNacimiento} onChange={handleChange} /></Col>
               <Col md={2}><Form.Label className="small fw-bold text-muted">Edad</Form.Label><Form.Control type="number" name="edad" placeholder="Años" value={formData.edad} onChange={handleChange} /></Col>
               <Col md={4}><Form.Label className="small fw-bold text-muted">Dirección Completa</Form.Label><Form.Control name="direccion" placeholder="Calle, Número, Comuna..." value={formData.direccion} onChange={handleChange} /></Col>
@@ -306,44 +306,44 @@ const NuevaFichaSocial = () => {
               <Col md={4}><Form.Label className="small fw-bold text-muted">Vía de Derivación a la CSJ</Form.Label><Form.Control name="viaDerivacion" placeholder="Especifique" value={formData.viaDerivacion} onChange={handleChange} /></Col>
               <Col md={4}><Form.Label className="small fw-bold text-muted">Materia Específica</Form.Label><Form.Control name="materiaEspecifica" placeholder="Especifique" value={formData.materiaEspecifica} onChange={handleChange} /></Col>
             </Row>
-            
+
             {/* NUEVA SECCIÓN: Opciones de Selección Única */}
             <Row className="g-3 mb-4">
               <Col md={12}>
                 <Form.Label className="small fw-bold text-muted d-block mb-2">Acción Realizada (Seleccione una opción)</Form.Label>
                 <div className="d-flex flex-wrap gap-4 align-items-center p-3 bg-light rounded border">
-                  <Form.Check 
-                    type="radio" 
-                    id="asesoramiento" 
-                    name="motivoOpcion" 
-                    label="Asesoramiento" 
+                  <Form.Check
+                    type="radio"
+                    id="asesoramiento"
+                    name="motivoOpcion"
+                    label="Asesoramiento"
                     value="asesoramiento"
                     checked={formData.motivoOpcion === 'asesoramiento'}
                     onChange={handleChange}
                     className="fw-medium"
                   />
-                  <Form.Check 
-                    type="radio" 
-                    id="creacionDocumento" 
-                    name="motivoOpcion" 
-                    label="Creación de Documento" 
+                  <Form.Check
+                    type="radio"
+                    id="creacionDocumento"
+                    name="motivoOpcion"
+                    label="Creación de Documento"
                     value="creacionDocumento"
                     checked={formData.motivoOpcion === 'creacionDocumento'}
                     onChange={handleChange}
                     className="fw-medium"
                   />
                   <div className="d-flex align-items-center gap-2">
-                    <Form.Check 
-                      type="radio" 
-                      id="otroMotivo" 
-                      name="motivoOpcion" 
-                      label="Otro Motivo:" 
+                    <Form.Check
+                      type="radio"
+                      id="otroMotivo"
+                      name="motivoOpcion"
+                      label="Otro Motivo:"
                       value="otro"
                       checked={formData.motivoOpcion === 'otro'}
                       onChange={handleChange}
                       className="fw-medium"
                     />
-                    <Form.Control 
+                    <Form.Control
                       size="sm"
                       name="otroMotivo"
                       placeholder="Especifique..."
@@ -402,8 +402,8 @@ const NuevaFichaSocial = () => {
             <div className="mx-auto text-start" style={{ maxWidth: '400px' }}>
               <Form.Group>
                 <Form.Label className="small fw-bold text-muted text-uppercase">Atendido con (Opcional)</Form.Label>
-                <Form.Select 
-                  value={coEstudianteId} 
+                <Form.Select
+                  value={coEstudianteId}
                   onChange={(e) => setCoEstudianteId(e.target.value)}
                   className="shadow-sm border-0"
                 >
