@@ -12,7 +12,11 @@ const NuevaFichaSocial = () => {
   
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(!!id); // Cargando si hay ID en la URL
+  
+  // Perfil del creador original, estudiante activo y lista para co-atención
   const [perfilActivo, setPerfilActivo] = useState({ nombre: 'Cargando...', rol: '...' });
+  const [estudiantes, setEstudiantes] = useState([]);
+  const [coEstudianteId, setCoEstudianteId] = useState('');
 
   const rutaBase = location.pathname.includes('panel-estudiante') ? '/panel-estudiante/fichas' : '/dashboard/fichas';
   const fechaActual = new Date().toISOString().split('T')[0];
@@ -30,18 +34,25 @@ const NuevaFichaSocial = () => {
     lugarDerivacion: '', causaCierre: '', profesionalDeriva: '', fechaCierre: ''
   });
 
-  // Cargar el perfil del profesional activo
+  // 1. Cargar el perfil del profesional activo y la lista de estudiantes
   useEffect(() => {
-    const fetchPerfil = async () => {
+    const fetchDatosBase = async () => {
       if (user?.id) {
-        const { data } = await supabase.from('perfiles').select('nombre, rol').eq('id', user.id).single();
-        if (data) setPerfilActivo(data);
+        const { data: perfilData } = await supabase.from('perfiles').select('nombre, rol').eq('id', user.id).single();
+        if (perfilData) setPerfilActivo(perfilData);
+      }
+      
+      try {
+        const { data: estData } = await supabase.from('perfiles').select('id, nombre, rol').order('nombre');
+        if (estData) setEstudiantes(estData);
+      } catch (error) {
+        console.error("Error al cargar lista de estudiantes:", error.message);
       }
     };
-    fetchPerfil();
+    fetchDatosBase();
   }, [user]);
 
-  // Cargar los datos de la ficha si estamos en modo edición
+  // 2. Cargar los datos de la ficha si estamos en modo edición
   useEffect(() => {
     const fetchFichaExistente = async () => {
       if (!id) return;
@@ -56,9 +67,15 @@ const NuevaFichaSocial = () => {
 
         if (fichaData) {
           const p = fichaData.participants || {};
+          
+          // Establecer el co-estudiante si existía
+          if (fichaData.co_estudiante_id) {
+            setCoEstudianteId(fichaData.co_estudiante_id);
+          }
+
           setFormData({
-            ...formData, // Mantener defaults
-            fecha: fichaData.fecha_creacion || fechaActual, // Usa la fecha original o la actual
+            ...formData, 
+            fecha: fichaData.fecha_creacion || fechaActual, 
             nombre: p.nombre || '',
             apellido: p.apellido || '',
             rut: p.rut || '',
@@ -138,7 +155,6 @@ const NuevaFichaSocial = () => {
     setSaving(true);
     
     try {
-      // 1. Manejo del Participante (Buscar o Crear)
       let { data: participante } = await supabase
         .from('participants')
         .select('id')
@@ -157,7 +173,6 @@ const NuevaFichaSocial = () => {
         if (errPart) throw errPart;
         participante = nuevoPart;
       } else {
-          // Si estamos editando y el rut existe, actualizamos sus datos base si cambiaron
           await supabase.from('participants').update({
               nombre: formData.nombre, apellido: formData.apellido,
               fecha_nacimiento: formData.fechaNacimiento || null, direccion: formData.direccion, 
@@ -165,9 +180,9 @@ const NuevaFichaSocial = () => {
           }).eq('id', participante.id);
       }
 
-      // 2. Manejo de la Ficha Social (Update si hay ID, Insert si es nueva)
       const payloadFicha = {
         participant_id: participante.id,
+        co_estudiante_id: coEstudianteId || null, // <--- NUEVO CAMPO DE CO-ATENCIÓN AÑADIDO
         linea_atencion: formData.lineaAtencion, via_derivacion: formData.viaDerivacion,
         materia_especifica: formData.materiaEspecifica, asesoramiento: formData.asesoramiento,
         creacion_documento: formData.creacionDocumento, otro_motivo: formData.otroMotivo,
@@ -182,7 +197,6 @@ const NuevaFichaSocial = () => {
       };
 
       if (id) {
-          // MODO EDICIÓN
           const { error: errUpdate } = await supabase
             .from('social_records')
             .update(payloadFicha)
@@ -190,8 +204,7 @@ const NuevaFichaSocial = () => {
           if (errUpdate) throw errUpdate;
           alert('Ficha Social actualizada exitosamente.');
       } else {
-          // MODO CREACIÓN
-          payloadFicha.professional_id = user?.id || null; // Solo asignamos el creador original la primera vez
+          payloadFicha.professional_id = user?.id || null; 
           const { error: errInsert } = await supabase
             .from('social_records')
             .insert([payloadFicha]);
@@ -361,16 +374,33 @@ const NuevaFichaSocial = () => {
           </Accordion.Item>
         </Accordion>
 
-        {/* IDENTIFICACIÓN FINAL DEL PROFESIONAL */}
+        {/* IDENTIFICACIÓN FINAL DEL PROFESIONAL Y CO-ATENCIÓN */}
         <Card className="border-0 shadow-sm mb-4 rounded-4" style={{ backgroundColor: '#f8f9fa' }}>
           <Card.Body className="text-center py-4">
             <p className="text-muted small text-uppercase fw-bold mb-1">
               {id ? 'Última modificación por' : 'Identificación del Personal que Atiende'}
             </p>
             <h4 className="fw-bold mb-0" style={{ color: 'var(--color-principal)' }}>{perfilActivo.nombre}</h4>
-            <Badge bg="secondary" className="mt-2 text-capitalize px-3 py-2 fs-6">
+            <Badge bg="secondary" className="mt-2 text-capitalize px-3 py-2 fs-6 mb-4">
               {perfilActivo.rol}
             </Badge>
+
+            {/* SELECCIÓN DE CO-ATENCIÓN */}
+            <div className="mx-auto text-start" style={{ maxWidth: '400px' }}>
+              <Form.Group>
+                <Form.Label className="small fw-bold text-muted text-uppercase">Atendido con (Opcional)</Form.Label>
+                <Form.Select 
+                  value={coEstudianteId} 
+                  onChange={(e) => setCoEstudianteId(e.target.value)}
+                  className="shadow-sm border-0"
+                >
+                  <option value="">Nadie (Atención individual)</option>
+                  {estudiantes.filter(e => e.id !== user?.id).map(est => (
+                    <option key={est.id} value={est.id}>{est.nombre} - {est.rol}</option>
+                  ))}
+                </Form.Select>
+              </Form.Group>
+            </div>
           </Card.Body>
         </Card>
 

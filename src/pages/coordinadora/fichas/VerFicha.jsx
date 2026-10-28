@@ -24,9 +24,10 @@ const VerFicha = () => {
 
         if (!tabla) throw new Error("Tipo de ficha no válido");
 
+        // ACTUALIZACIÓN: Traer el creador y también el co_estudiante a través de las relaciones
         const { data, error } = await supabase
           .from(tabla)
-          .select('*, participants(*), perfiles(nombre, rol)')
+          .select('*, participants(*), perfiles!professional_id(nombre, rol), co_estudiante:perfiles!co_estudiante_id(nombre, rol)')
           .eq('id', id)
           .single();
 
@@ -68,24 +69,20 @@ const descargarWord = async () => {
         linebreaks: true,
       });
 
-      // --- NUEVO: FORMATEAR LA FECHA ---
       let fechaFormateada = '';
       const fechaCruda = ficha.fecha_creacion || ficha.created_at || ficha.fecha;
       if (fechaCruda) {
-        // Esto convertirá "2026-10-06T15:42..." a "06-10-2026" (Formato chileno)
         fechaFormateada = new Date(fechaCruda).toLocaleDateString('es-CL'); 
       }
 
-      // Mapeamos los datos del estado "ficha" hacia las llaves del Word
       doc.render({
         nombre: ficha.participants?.nombre || '',
         apellido: ficha.participants?.apellido || '',
-        fecha: fechaFormateada, // Usamos la fecha formateada aquí
+        fecha: fechaFormateada,
         rut: ficha.participants?.rut || '',
         fechaNacimiento: ficha.participants?.fecha_nacimiento || '',
         edad: ficha.edad || '',
         direccion: ficha.direccion || '',
-        // ... (mantén el resto de tus variables de doc.render exactamente igual)
         sistemaSalud: ficha.sistemaSalud || ficha.sistema_salud || '',
         sistemaPrevisional: ficha.sistemaPrevisional || ficha.sistema_previsional || '',
         correo: ficha.participants?.correo || '',
@@ -135,7 +132,8 @@ const descargarWord = async () => {
     }
   };
 
-  const camposOcultos = ['id', 'participant_id', 'professional_id', 'created_at', 'fecha_creacion', 'participants', 'perfiles'];
+  // ACTUALIZACIÓN: Se añadieron co_estudiante_id y co_estudiante a los campos ocultos para no renderizarlos como tabla simple
+  const camposOcultos = ['id', 'participant_id', 'professional_id', 'co_estudiante_id', 'created_at', 'fecha_creacion', 'participants', 'perfiles', 'co_estudiante'];
   const detallesFicha = Object.entries(ficha).filter(([key, value]) => !camposOcultos.includes(key) && value !== null && value !== '');
 
   return (
@@ -148,7 +146,6 @@ const descargarWord = async () => {
           <p className="text-muted mb-0">Visualización completa del documento</p>
         </div>
         <div className="d-flex gap-2">
-          {/* Solo mostramos el botón si es una ficha social para que coincida con tu formato Word */}
           {tipo === 'social' && (
             <Button variant="primary" className="fw-bold shadow-sm" onClick={descargarWord}>
               📥 Descargar Word
@@ -197,6 +194,19 @@ const descargarWord = async () => {
                   </Badge>
                 </div>
               </div>
+              
+              {/* ACTUALIZACIÓN: Bloque para mostrar el co-estudiante si existe */}
+              {ficha.co_estudiante && (
+                <>
+                  <hr className="my-3"/>
+                  <h6 className="fw-bold text-muted text-uppercase mb-2" style={{ fontSize: '0.75rem' }}>👥 Atendido con</h6>
+                  <div className="d-flex align-items-center gap-2">
+                    <span className="fw-bold text-dark">{ficha.co_estudiante.nombre}</span>
+                    <Badge bg="secondary" style={{ fontSize: '0.65rem' }}>{ficha.co_estudiante.rol}</Badge>
+                  </div>
+                </>
+              )}
+
               <hr />
               <p className="mb-0 small text-muted"><strong>Fecha de Registro:</strong> {new Date(ficha.fecha_creacion || ficha.created_at).toLocaleString('es-CL', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: 'short', year: 'numeric' })}</p>
             </Card.Body>
