@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Container, Table, Button, Spinner, Badge, Card, Modal, Row, Col, Form, InputGroup } from 'react-bootstrap';
+import { Container, Table, Button, Spinner, Badge, Card, Modal, Row, Col, Form, InputGroup, Dropdown } from 'react-bootstrap';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import * as XLSX from 'xlsx';
@@ -22,7 +22,6 @@ const ListaFichas = () => {
   const fetchFichas = async () => {
     try {
       const [socialesRes, juridicasRes, recopilacionRes, visitasRes, intervencionRes] = await Promise.all([
-        // AQUÍ SE PIDE EL NOMBRE DEL CO-ESTUDIANTE (Si existe)
         supabase.from('social_records').select('id, fecha_creacion, fecha_cierre, participants(rut, nombre, apellido), perfiles!professional_id(nombre, rol), co_estudiante:perfiles!co_estudiante_id(nombre)'),
         supabase.from('legal_records').select('id, created_at, fecha_cierre, participants(rut, nombre, apellido), perfiles(nombre, rol)'),
         supabase.from('recopilacion_records').select('id, created_at, participants(rut, nombre, apellido), perfiles(nombre, rol)'),
@@ -100,7 +99,6 @@ const ListaFichas = () => {
       if (ficha.tipoEspecifico === 'Recopilación Info.' || ficha.tipoEspecifico === 'Visita Domiciliaria') estadoTxt = 'Registrada';
       else if (ficha.fecha_cierre) estadoTxt = 'Cerrado';
 
-      // Tomar nombre correcto desde "perfiles" si viene con el nuevo formato de alias o del viejo formato
       const elaboradorNombre = ficha.perfiles?.nombre || 'Sistema';
       const elaboradorRol = ficha.perfiles?.rol || 'N/A';
 
@@ -151,6 +149,16 @@ const ListaFichas = () => {
           <p className="text-muted mb-0">Monitorización en vivo, filtrado y exportación de atenciones</p>
         </div>
         <div className="d-flex gap-2">
+          {/* DROPDOWN BASE DE DATOS - SOLO REGISTRO DE ATENCION */}
+          <Dropdown>
+            <Dropdown.Toggle variant="outline-primary" className="fw-bold shadow-sm d-flex align-items-center gap-2">
+              <span>🗄️</span> Base De datos
+            </Dropdown.Toggle>
+            <Dropdown.Menu className="shadow-sm">
+              <Dropdown.Item href="#">REGISTRO DE ATENCIÓN</Dropdown.Item>
+            </Dropdown.Menu>
+          </Dropdown>
+
           <Button variant="outline-success" className="fw-bold shadow-sm d-flex align-items-center gap-2" onClick={exportarAExcel} disabled={fichasFiltradas.length === 0}>
              <span>📊</span> Descargar Excel
           </Button>
@@ -276,7 +284,7 @@ const ListaFichas = () => {
           <div className="bg-light p-4 border-bottom">
             <Row className="g-4">
               <Col md={6} className="border-end-md">
-                <h6 className="text-muted fw-bold small text-uppercase mb-2">👤 Datos del Usuario</h6>
+                <h6 className="text-muted fw-bold small text-uppercase mb-2">👤 Datos del Paciente</h6>
                 <h4 className="fw-bolder mb-1">{fichaSeleccionada?.participants?.nombre} {fichaSeleccionada?.participants?.apellido}</h4>
                 <p className="text-secondary fw-bold mb-0">RUT: {fichaSeleccionada?.participants?.rut || 'Sin registrar'}</p>
               </Col>
