@@ -24,7 +24,6 @@ const VerFicha = () => {
 
         if (!tabla) throw new Error("Tipo de ficha no válido");
 
-        // ACTUALIZACIÓN: Traer el creador y también el co_estudiante a través de las relaciones
         const { data, error } = await supabase
           .from(tabla)
           .select('*, participants(*), perfiles!professional_id(nombre, rol), co_estudiante:perfiles!co_estudiante_id(nombre, rol)')
@@ -75,6 +74,11 @@ const descargarWord = async () => {
         fechaFormateada = new Date(fechaCruda).toLocaleDateString('es-CL'); 
       }
 
+      // NUEVO LÓGICA: Inserción de "X" exclusiva para Asesoramiento / Creación de Doc / Otro
+      const marcaAsesoramiento = (ficha.asesoramiento && ficha.asesoramiento !== 'No') ? 'X' : '';
+      const marcaCreacion = (ficha.creacionDocumento || ficha.creacion_documento) && ((ficha.creacionDocumento || ficha.creacion_documento) !== 'No') ? 'X' : '';
+      const marcaOtro = (ficha.otroMotivo || ficha.otro_motivo) ? `X - ${(ficha.otroMotivo || ficha.otro_motivo)}` : '';
+
       doc.render({
         nombre: ficha.participants?.nombre || '',
         apellido: ficha.participants?.apellido || '',
@@ -93,9 +97,12 @@ const descargarWord = async () => {
         lineaAtencion: ficha.lineaAtencion || ficha.linea_atencion || '',
         viaDerivacion: ficha.viaDerivacion || ficha.via_derivacion || '',
         materiaEspecifica: ficha.materiaEspecifica || ficha.materia_especifica || '',
-        asesoramiento: ficha.asesoramiento ? 'Sí' : 'No',
-        creacionDocumento: ficha.creacionDocumento || ficha.creacion_documento ? 'Sí' : 'No',
-        otroMotivo: ficha.otroMotivo || ficha.otro_motivo || '',
+        
+        // Pasa las 'X' estrictas hacia el formato Word
+        asesoramiento: marcaAsesoramiento,
+        creacionDocumento: marcaCreacion,
+        otroMotivo: marcaOtro,
+        
         compromisoUsuario: ficha.compromisoUsuario || ficha.compromiso_usuario || '',
         compromisoProfesional: ficha.compromisoProfesional || ficha.compromiso_profesional || '',
         observacionProfesional: ficha.observacionProfesional || ficha.observacion_profesional || '',
@@ -132,7 +139,6 @@ const descargarWord = async () => {
     }
   };
 
-  // ACTUALIZACIÓN: Se añadieron co_estudiante_id y co_estudiante a los campos ocultos para no renderizarlos como tabla simple
   const camposOcultos = ['id', 'participant_id', 'professional_id', 'co_estudiante_id', 'created_at', 'fecha_creacion', 'participants', 'perfiles', 'co_estudiante'];
   const detallesFicha = Object.entries(ficha).filter(([key, value]) => !camposOcultos.includes(key) && value !== null && value !== '');
 
@@ -158,10 +164,7 @@ const descargarWord = async () => {
       </div>
 
       <Row className="g-4">
-        {/* COLUMNA IZQUIERDA: Identificación */}
         <Col lg={4} className="d-flex flex-column gap-4">
-
-          {/* Tarjeta del Usuario Paciente */}
           <Card className="border-0 shadow-sm rounded-4 border-top border-4 border-primary">
             <Card.Body className="p-4">
               <h6 className="fw-bold text-muted text-uppercase mb-3">👤 Usuario Atendido</h6>
@@ -177,7 +180,6 @@ const descargarWord = async () => {
             </Card.Body>
           </Card>
 
-          {/* Tarjeta del Estudiante o Profesional */}
           <Card className="border-0 shadow-sm rounded-4 border-top border-4 border-success">
             <Card.Body className="p-4">
               <h6 className="fw-bold text-muted text-uppercase mb-3">✍️ Profesional / Estudiante a Cargo</h6>
@@ -195,7 +197,6 @@ const descargarWord = async () => {
                 </div>
               </div>
               
-              {/* ACTUALIZACIÓN: Bloque para mostrar el co-estudiante si existe */}
               {ficha.co_estudiante && (
                 <>
                   <hr className="my-3"/>
@@ -213,7 +214,6 @@ const descargarWord = async () => {
           </Card>
         </Col>
 
-        {/* COLUMNA DERECHA: Detalles de la Ficha */}
         <Col lg={8}>
           <Card className="border-0 shadow-sm rounded-4 h-100">
             <Card.Header className="bg-white border-bottom-0 pt-4 pb-0">

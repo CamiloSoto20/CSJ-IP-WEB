@@ -7,13 +7,12 @@ import { useAuth } from '../../../context/AuthContext';
 const NuevaFichaSocial = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { id } = useParams(); // ID de la ficha si estamos editando
+  const { id } = useParams();
   const { user } = useAuth();
   
   const [saving, setSaving] = useState(false);
-  const [loading, setLoading] = useState(!!id); // Cargando si hay ID en la URL
+  const [loading, setLoading] = useState(!!id);
   
-  // Perfil del creador original, estudiante activo y lista para co-atención
   const [perfilActivo, setPerfilActivo] = useState({ nombre: 'Cargando...', rol: '...' });
   const [estudiantes, setEstudiantes] = useState([]);
   const [coEstudianteId, setCoEstudianteId] = useState('');
@@ -26,15 +25,16 @@ const NuevaFichaSocial = () => {
     nombre: '', apellido: '', rut: '', fechaNacimiento: '', edad: '', direccion: '', 
     sistemaSalud: '', sistemaPrevisional: '', correo: '', celular: '', 
     nacionalidad: '', etnia: '',
-    lineaAtencion: '', viaDerivacion: '', materiaEspecifica: '', asesoramiento: '',
-    creacionDocumento: '', otroMotivo: '', compromisoUsuario: '', compromisoProfesional: '', observacion: '',
+    lineaAtencion: '', viaDerivacion: '', materiaEspecifica: '',
+    motivoOpcion: '', // NUEVO: Controla la selección única (asesoramiento, creacionDocumento, otro)
+    asesoramiento: '', creacionDocumento: '', otroMotivo: '', 
+    compromisoUsuario: '', compromisoProfesional: '', observacion: '',
     llamadasCantidad: '', llamadasFechas: '', llamadasResultado: '',
     visitasCantidad: '', visitasFechas: '', visitasResultado: '',
     teamsCantidad: '', teamsFechas: '', teamsResultado: '',
     lugarDerivacion: '', causaCierre: '', profesionalDeriva: '', fechaCierre: ''
   });
 
-  // 1. Cargar el perfil del profesional activo y la lista de estudiantes
   useEffect(() => {
     const fetchDatosBase = async () => {
       if (user?.id) {
@@ -44,7 +44,10 @@ const NuevaFichaSocial = () => {
       
       try {
         const { data: estData } = await supabase.from('perfiles').select('id, nombre, rol').order('nombre');
-        if (estData) setEstudiantes(estData);
+        if (estData) {
+          const soloEstudiantes = estData.filter(e => e.rol?.toLowerCase() === 'estudiante');
+          setEstudiantes(soloEstudiantes);
+        }
       } catch (error) {
         console.error("Error al cargar lista de estudiantes:", error.message);
       }
@@ -52,7 +55,6 @@ const NuevaFichaSocial = () => {
     fetchDatosBase();
   }, [user]);
 
-  // 2. Cargar los datos de la ficha si estamos en modo edición
   useEffect(() => {
     const fetchFichaExistente = async () => {
       if (!id) return;
@@ -68,10 +70,15 @@ const NuevaFichaSocial = () => {
         if (fichaData) {
           const p = fichaData.participants || {};
           
-          // Establecer el co-estudiante si existía
           if (fichaData.co_estudiante_id) {
             setCoEstudianteId(fichaData.co_estudiante_id);
           }
+
+          // Lógica para marcar el Radio Button correcto basado en los datos guardados
+          let opcion = '';
+          if (fichaData.asesoramiento && fichaData.asesoramiento !== 'No' && fichaData.asesoramiento !== '') opcion = 'asesoramiento';
+          else if (fichaData.creacion_documento && fichaData.creacion_documento !== 'No' && fichaData.creacion_documento !== '') opcion = 'creacionDocumento';
+          else if (fichaData.otro_motivo && fichaData.otro_motivo !== '') opcion = 'otro';
 
           setFormData({
             ...formData, 
@@ -88,9 +95,12 @@ const NuevaFichaSocial = () => {
             lineaAtencion: fichaData.linea_atencion || '',
             viaDerivacion: fichaData.via_derivacion || '',
             materiaEspecifica: fichaData.materia_especifica || '',
+            
+            motivoOpcion: opcion, // Cargamos la opción marcada
             asesoramiento: fichaData.asesoramiento || '',
             creacionDocumento: fichaData.creacion_documento || '',
             otroMotivo: fichaData.otro_motivo || '',
+            
             compromisoUsuario: fichaData.compromiso_usuario || '',
             compromisoProfesional: fichaData.compromiso_profesional || '',
             observacion: fichaData.observacion || '',
@@ -180,12 +190,17 @@ const NuevaFichaSocial = () => {
           }).eq('id', participante.id);
       }
 
+      // Guardar una 'X' en la DB dependiendo de qué Radio Button se marcó
       const payloadFicha = {
         participant_id: participante.id,
-        co_estudiante_id: coEstudianteId || null, // <--- NUEVO CAMPO DE CO-ATENCIÓN AÑADIDO
+        co_estudiante_id: coEstudianteId || null, 
         linea_atencion: formData.lineaAtencion, via_derivacion: formData.viaDerivacion,
-        materia_especifica: formData.materiaEspecifica, asesoramiento: formData.asesoramiento,
-        creacion_documento: formData.creacionDocumento, otro_motivo: formData.otroMotivo,
+        materia_especifica: formData.materiaEspecifica, 
+        
+        asesoramiento: formData.motivoOpcion === 'asesoramiento' ? 'X' : '',
+        creacion_documento: formData.motivoOpcion === 'creacionDocumento' ? 'X' : '',
+        otro_motivo: formData.motivoOpcion === 'otro' ? formData.otroMotivo : '',
+        
         compromiso_usuario: formData.compromisoUsuario, compromiso_profesional: formData.compromisoProfesional,
         observacion: formData.observacion, llamadas_cantidad: formData.llamadasCantidad,
         llamadas_fechas: formData.llamadasFechas, llamadas_resultado: formData.llamadasResultado,
@@ -246,86 +261,41 @@ const NuevaFichaSocial = () => {
       </div>
 
       <Form onSubmit={handleSubmit}>
-        {/* I. Identificación del Usuario */}
         <Card className="border-0 shadow-sm mb-4 rounded-4">
           <Card.Header className="bg-white border-bottom-0 pt-4 pb-0">
             <h6 className="fw-bold text-uppercase" style={{ color: 'var(--color-principal, #006A38)' }}>I. Identificación del Usuario</h6>
           </Card.Header>
           <Card.Body>
             <Row className="g-3">
-              <Col md={5}>
-                <Form.Label className="small fw-bold text-muted">Nombres</Form.Label>
-                <Form.Control name="nombre" placeholder="Nombres del usuario" value={formData.nombre} onChange={handleChange} required />
-              </Col>
-              <Col md={5}>
-                <Form.Label className="small fw-bold text-muted">Apellidos</Form.Label>
-                <Form.Control name="apellido" placeholder="Apellidos del usuario" value={formData.apellido} onChange={handleChange} required />
-              </Col>
-              
-              <Col md={2}>
-                <Form.Label className="small fw-bold text-muted">Fecha de Atención</Form.Label>
-                <Form.Control type="date" name="fecha" value={formData.fecha} readOnly className="fw-bold bg-light" />
-              </Col>
-
-              <Col md={3}>
-                <Form.Label className="small fw-bold text-muted">Cédula de Identidad</Form.Label>
-                <Form.Control name="rut" value={formData.rut} placeholder="12.345.678-9" onChange={handleChange} required maxLength={12} className="fw-bold" disabled={!!id} title={id ? "El RUT no se puede modificar" : ""}/>
-              </Col>
-              <Col md={3}>
-                <Form.Label className="small fw-bold text-muted">Fecha Nacimiento</Form.Label>
-                <Form.Control type="date" name="fechaNacimiento" value={formData.fechaNacimiento} onChange={handleChange} />
-              </Col>
-              <Col md={2}>
-                <Form.Label className="small fw-bold text-muted">Edad</Form.Label>
-                <Form.Control type="number" name="edad" placeholder="Años" value={formData.edad} onChange={handleChange} />
-              </Col>
-              <Col md={4}>
-                <Form.Label className="small fw-bold text-muted">Dirección Completa</Form.Label>
-                <Form.Control name="direccion" placeholder="Calle, Número, Comuna..." value={formData.direccion} onChange={handleChange} />
-              </Col>
+              <Col md={5}><Form.Label className="small fw-bold text-muted">Nombres</Form.Label><Form.Control name="nombre" placeholder="Nombres del usuario" value={formData.nombre} onChange={handleChange} required /></Col>
+              <Col md={5}><Form.Label className="small fw-bold text-muted">Apellidos</Form.Label><Form.Control name="apellido" placeholder="Apellidos del usuario" value={formData.apellido} onChange={handleChange} required /></Col>
+              <Col md={2}><Form.Label className="small fw-bold text-muted">Fecha de Atención</Form.Label><Form.Control type="date" name="fecha" value={formData.fecha} readOnly className="fw-bold bg-light" /></Col>
+              <Col md={3}><Form.Label className="small fw-bold text-muted">Cédula de Identidad</Form.Label><Form.Control name="rut" value={formData.rut} placeholder="12.345.678-9" onChange={handleChange} required maxLength={12} className="fw-bold" disabled={!!id} title={id ? "El RUT no se puede modificar" : ""}/></Col>
+              <Col md={3}><Form.Label className="small fw-bold text-muted">Fecha Nacimiento</Form.Label><Form.Control type="date" name="fechaNacimiento" value={formData.fechaNacimiento} onChange={handleChange} /></Col>
+              <Col md={2}><Form.Label className="small fw-bold text-muted">Edad</Form.Label><Form.Control type="number" name="edad" placeholder="Años" value={formData.edad} onChange={handleChange} /></Col>
+              <Col md={4}><Form.Label className="small fw-bold text-muted">Dirección Completa</Form.Label><Form.Control name="direccion" placeholder="Calle, Número, Comuna..." value={formData.direccion} onChange={handleChange} /></Col>
 
               <Col md={3}>
                 <Form.Label className="small fw-bold text-muted">Sistema de Salud</Form.Label>
                 <Form.Select name="sistemaSalud" value={formData.sistemaSalud} onChange={handleChange}>
-                  <option value="">Seleccione...</option>
-                  <option value="Fonasa">Fonasa</option>
-                  <option value="Isapre">Isapre</option>
-                  <option value="Ninguno">Ninguno</option>
-                  <option value="Otro">Otro</option>
+                  <option value="">Seleccione...</option><option value="Fonasa">Fonasa</option><option value="Isapre">Isapre</option><option value="Ninguno">Ninguno</option><option value="Otro">Otro</option>
                 </Form.Select>
               </Col>
               <Col md={3}>
                 <Form.Label className="small fw-bold text-muted">Sistema Previsional</Form.Label>
                 <Form.Select name="sistemaPrevisional" value={formData.sistemaPrevisional} onChange={handleChange}>
-                  <option value="">Seleccione...</option>
-                  <option value="AFP">AFP</option>
-                  <option value="INP">INP / IPS</option>
-                  <option value="Ninguno">Ninguno</option>
-                  <option value="Otro">Otro</option>
+                  <option value="">Seleccione...</option><option value="AFP">AFP</option><option value="INP">INP / IPS</option><option value="Ninguno">Ninguno</option><option value="Otro">Otro</option>
                 </Form.Select>
               </Col>
-              <Col md={3}>
-                <Form.Label className="small fw-bold text-muted">Correo Electrónico (@gmail/@hotmail)</Form.Label>
-                <Form.Control type="email" name="correo" placeholder="ejemplo@gmail.com" value={formData.correo} onChange={handleChange} required />
-              </Col>
-              <Col md={3}>
-                <Form.Label className="small fw-bold text-muted">N° Celular</Form.Label>
-                <Form.Control name="celular" placeholder="+56 9..." value={formData.celular} onChange={handleChange} />
-              </Col>
+              <Col md={3}><Form.Label className="small fw-bold text-muted">Correo Electrónico (@gmail/@hotmail)</Form.Label><Form.Control type="email" name="correo" placeholder="ejemplo@gmail.com" value={formData.correo} onChange={handleChange} required /></Col>
+              <Col md={3}><Form.Label className="small fw-bold text-muted">N° Celular</Form.Label><Form.Control name="celular" placeholder="+56 9..." value={formData.celular} onChange={handleChange} /></Col>
 
-              <Col md={6}>
-                <Form.Label className="small fw-bold text-muted">Nacionalidad</Form.Label>
-                <Form.Control name="nacionalidad" placeholder="Nacionalidad" value={formData.nacionalidad} onChange={handleChange} />
-              </Col>
-              <Col md={6}>
-                <Form.Label className="small fw-bold text-muted">Etnia (Opcional)</Form.Label>
-                <Form.Control name="etnia" placeholder="Etnia" value={formData.etnia} onChange={handleChange} />
-              </Col>
+              <Col md={6}><Form.Label className="small fw-bold text-muted">Nacionalidad</Form.Label><Form.Control name="nacionalidad" placeholder="Nacionalidad" value={formData.nacionalidad} onChange={handleChange} /></Col>
+              <Col md={6}><Form.Label className="small fw-bold text-muted">Etnia (Opcional)</Form.Label><Form.Control name="etnia" placeholder="Etnia" value={formData.etnia} onChange={handleChange} /></Col>
             </Row>
           </Card.Body>
         </Card>
 
-        {/* II. Motivo de la Atención */}
         <Card className="border-0 shadow-sm mb-4 rounded-4">
           <Card.Header className="bg-white border-bottom-0 pt-4 pb-0">
             <h6 className="fw-bold text-uppercase" style={{ color: 'var(--color-principal, #006A38)' }}>II. Motivo de la Atención</h6>
@@ -336,11 +306,57 @@ const NuevaFichaSocial = () => {
               <Col md={4}><Form.Label className="small fw-bold text-muted">Vía de Derivación a la CSJ</Form.Label><Form.Control name="viaDerivacion" placeholder="Especifique" value={formData.viaDerivacion} onChange={handleChange} /></Col>
               <Col md={4}><Form.Label className="small fw-bold text-muted">Materia Específica</Form.Label><Form.Control name="materiaEspecifica" placeholder="Especifique" value={formData.materiaEspecifica} onChange={handleChange} /></Col>
             </Row>
-            <Row className="g-3 mb-3">
-              <Col md={4}><Form.Label className="small fw-bold text-muted">Asesoramiento</Form.Label><Form.Control name="asesoramiento" placeholder="Detalle" value={formData.asesoramiento} onChange={handleChange} /></Col>
-              <Col md={4}><Form.Label className="small fw-bold text-muted">Creación de Documento</Form.Label><Form.Control name="creacionDocumento" placeholder="Detalle" value={formData.creacionDocumento} onChange={handleChange} /></Col>
-              <Col md={4}><Form.Label className="small fw-bold text-muted">Otro Motivo</Form.Label><Form.Control name="otroMotivo" placeholder="Detalle" value={formData.otroMotivo} onChange={handleChange} /></Col>
+            
+            {/* NUEVA SECCIÓN: Opciones de Selección Única */}
+            <Row className="g-3 mb-4">
+              <Col md={12}>
+                <Form.Label className="small fw-bold text-muted d-block mb-2">Acción Realizada (Seleccione una opción)</Form.Label>
+                <div className="d-flex flex-wrap gap-4 align-items-center p-3 bg-light rounded border">
+                  <Form.Check 
+                    type="radio" 
+                    id="asesoramiento" 
+                    name="motivoOpcion" 
+                    label="Asesoramiento" 
+                    value="asesoramiento"
+                    checked={formData.motivoOpcion === 'asesoramiento'}
+                    onChange={handleChange}
+                    className="fw-medium"
+                  />
+                  <Form.Check 
+                    type="radio" 
+                    id="creacionDocumento" 
+                    name="motivoOpcion" 
+                    label="Creación de Documento" 
+                    value="creacionDocumento"
+                    checked={formData.motivoOpcion === 'creacionDocumento'}
+                    onChange={handleChange}
+                    className="fw-medium"
+                  />
+                  <div className="d-flex align-items-center gap-2">
+                    <Form.Check 
+                      type="radio" 
+                      id="otroMotivo" 
+                      name="motivoOpcion" 
+                      label="Otro Motivo:" 
+                      value="otro"
+                      checked={formData.motivoOpcion === 'otro'}
+                      onChange={handleChange}
+                      className="fw-medium"
+                    />
+                    <Form.Control 
+                      size="sm"
+                      name="otroMotivo"
+                      placeholder="Especifique..."
+                      value={formData.otroMotivo}
+                      onChange={handleChange}
+                      disabled={formData.motivoOpcion !== 'otro'}
+                      style={{ width: '200px' }}
+                    />
+                  </div>
+                </div>
+              </Col>
             </Row>
+
             <Row className="g-3 mb-3">
               <Col md={6}><Form.Label className="small fw-bold text-muted">Compromiso del Usuario</Form.Label><Form.Control as="textarea" rows={3} name="compromisoUsuario" placeholder="Acuerdos..." value={formData.compromisoUsuario} onChange={handleChange} /></Col>
               <Col md={6}><Form.Label className="small fw-bold text-muted">Compromiso del Profesional</Form.Label><Form.Control as="textarea" rows={3} name="compromisoProfesional" placeholder="Acuerdos..." value={formData.compromisoProfesional} onChange={handleChange} /></Col>
@@ -350,7 +366,6 @@ const NuevaFichaSocial = () => {
           </Card.Body>
         </Card>
 
-        {/* III y IV - Seguimientos y Cierres */}
         <Accordion className="mb-4 shadow-sm" alwaysOpen defaultActiveKey={id ? ['0', '1'] : []}>
           <Accordion.Item eventKey="0" className="border-0 rounded-4 mb-3">
             <Accordion.Header><h6 className="fw-bold text-uppercase mb-0" style={{ color: 'var(--color-principal, #006A38)' }}>III. Seguimiento y Gestiones (Opcional)</h6></Accordion.Header>
@@ -374,7 +389,6 @@ const NuevaFichaSocial = () => {
           </Accordion.Item>
         </Accordion>
 
-        {/* IDENTIFICACIÓN FINAL DEL PROFESIONAL Y CO-ATENCIÓN */}
         <Card className="border-0 shadow-sm mb-4 rounded-4" style={{ backgroundColor: '#f8f9fa' }}>
           <Card.Body className="text-center py-4">
             <p className="text-muted small text-uppercase fw-bold mb-1">
@@ -385,7 +399,6 @@ const NuevaFichaSocial = () => {
               {perfilActivo.rol}
             </Badge>
 
-            {/* SELECCIÓN DE CO-ATENCIÓN */}
             <div className="mx-auto text-start" style={{ maxWidth: '400px' }}>
               <Form.Group>
                 <Form.Label className="small fw-bold text-muted text-uppercase">Atendido con (Opcional)</Form.Label>
@@ -396,7 +409,7 @@ const NuevaFichaSocial = () => {
                 >
                   <option value="">Nadie (Atención individual)</option>
                   {estudiantes.filter(e => e.id !== user?.id).map(est => (
-                    <option key={est.id} value={est.id}>{est.nombre} - {est.rol}</option>
+                    <option key={est.id} value={est.id}>{est.nombre}</option>
                   ))}
                 </Form.Select>
               </Form.Group>
@@ -404,7 +417,6 @@ const NuevaFichaSocial = () => {
           </Card.Body>
         </Card>
 
-        {/* CONTROLES */}
         <div className="d-flex justify-content-end gap-3 pb-5">
           <Button variant="outline-secondary" size="lg" onClick={() => navigate(rutaBase)}>Cancelar</Button>
           <Button type="submit" size="lg" style={{ backgroundColor: 'var(--color-principal, #006A38)', border: 'none' }} disabled={saving}>
