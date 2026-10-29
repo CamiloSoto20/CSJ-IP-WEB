@@ -9,8 +9,8 @@ const Charlas = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [showModal, setShowModal] = useState(false);
+  const [editId, setEditId] = useState(null); // NUEVO: Estado para saber si estamos editando
 
-  // Mapeado a los nombres reales de la BD
   const [formData, setFormData] = useState({
     titulo: '', descripcion: '', fecha: '', hora: '', ubicacion: ''
   });
@@ -37,6 +37,33 @@ const Charlas = () => {
 
   const handleChange = (e) => setFormData({ ...formData, [e.target.name]: e.target.value });
 
+  const handleClose = () => {
+    setShowModal(false);
+    setEditId(null);
+    setFormData({ titulo: '', descripcion: '', fecha: '', hora: '', ubicacion: '' });
+    setAfiche(null);
+  };
+
+  const abrirModalCrear = () => {
+    setEditId(null);
+    setFormData({ titulo: '', descripcion: '', fecha: '', hora: '', ubicacion: '' });
+    setShowModal(true);
+  };
+
+  // NUEVO: Función para abrir el modal con los datos cargados
+  const abrirModalEditar = (charla) => {
+    setEditId(charla.id);
+    setFormData({
+      titulo: charla.titulo,
+      descripcion: charla.descripcion,
+      fecha: charla.fecha,
+      hora: charla.hora,
+      ubicacion: charla.ubicacion
+    });
+    setAfiche(null); // El afiche se mantiene igual si no suben uno nuevo
+    setShowModal(true);
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setSaving(true);
@@ -44,7 +71,7 @@ const Charlas = () => {
     try {
       let aficheUrl = null;
 
-      // Subir Afiche
+      // Subir Afiche si hay uno nuevo
       if (afiche) {
         const fileExt = afiche.name.split('.').pop();
         const fileName = `afiche_coord_${Date.now()}.${fileExt}`;
@@ -54,25 +81,35 @@ const Charlas = () => {
         }
       }
 
-      // Insertar calzando con las columnas exactas de Supabase
-      const { error } = await supabase.from('talks').insert([{
+      const payload = {
         titulo: formData.titulo,
         descripcion: formData.descripcion,
         fecha: formData.fecha,
         hora: formData.hora,
         ubicacion: formData.ubicacion,
-        imagen_url: aficheUrl,
-        cupos_totales: 30, // Agregado para que no de error
-        cupos_disponibles: 30,
-        estado: 'Disponible'
-      }]);
+      };
 
-      if (error) throw error;
+      if (aficheUrl) {
+        payload.imagen_url = aficheUrl;
+      }
 
-      alert('Charla registrada exitosamente.');
-      setShowModal(false);
-      setFormData({ titulo: '', descripcion: '', fecha: '', hora: '', ubicacion: '' });
-      setAfiche(null);
+      if (editId) {
+        // ACTUALIZAR CHARLA EXISTENTE
+        const { error } = await supabase.from('talks').update(payload).eq('id', editId);
+        if (error) throw error;
+        alert('Charla actualizada exitosamente.');
+      } else {
+        // CREAR NUEVA CHARLA
+        payload.cupos_totales = 30;
+        payload.cupos_disponibles = 30;
+        payload.estado = 'Disponible';
+        
+        const { error } = await supabase.from('talks').insert([payload]);
+        if (error) throw error;
+        alert('Charla registrada exitosamente.');
+      }
+
+      handleClose();
       fetchCharlas();
     } catch (error) {
       alert('Error al guardar la charla: ' + error.message);
@@ -100,7 +137,7 @@ const Charlas = () => {
           <h2 style={{ color: 'var(--color-principal)', fontWeight: '800' }}>Charlas y Capacitaciones</h2>
           <p className="text-muted">Gestión de actividades de formación</p>
         </div>
-        <Button style={{ backgroundColor: 'var(--color-principal)', border: 'none' }} onClick={() => setShowModal(true)} className="fw-bold px-4 py-2 rounded-pill shadow-sm">
+        <Button style={{ backgroundColor: 'var(--color-principal)', border: 'none' }} onClick={abrirModalCrear} className="fw-bold px-4 py-2 rounded-pill shadow-sm">
           + Subir Charla
         </Button>
       </div>
@@ -141,7 +178,8 @@ const Charlas = () => {
                       </div>
                     </td>
                     <td className="px-4 text-end">
-                      <Button variant="outline-danger" size="sm" onClick={() => handleDelete(charla.id)}>Eliminar</Button>
+                      <Button variant="outline-primary" size="sm" className="me-2 fw-bold" onClick={() => abrirModalEditar(charla)}>Editar</Button>
+                      <Button variant="outline-danger" size="sm" className="fw-bold" onClick={() => handleDelete(charla.id)}>Eliminar</Button>
                     </td>
                   </tr>
                 ))
@@ -151,10 +189,12 @@ const Charlas = () => {
         </Card>
       )}
 
-      {/* Modal Subir Charla (Mismo diseño que el estudiante) */}
-      <Modal show={showModal} onHide={() => setShowModal(false)} size="lg" centered>
+      {/* Modal Subir / Editar Charla */}
+      <Modal show={showModal} onHide={handleClose} size="lg" centered>
         <Modal.Header closeButton>
-          <Modal.Title className="fw-bold" style={{ color: 'var(--color-principal)' }}>Registrar Nueva Charla</Modal.Title>
+          <Modal.Title className="fw-bold" style={{ color: 'var(--color-principal)' }}>
+            {editId ? 'Editar Charla' : 'Registrar Nueva Charla'}
+          </Modal.Title>
         </Modal.Header>
         <Modal.Body>
           <Form onSubmit={handleSubmit}>
@@ -194,14 +234,15 @@ const Charlas = () => {
                 <Form.Group>
                   <Form.Label className="small fw-bold">Afiche (Imagen)</Form.Label>
                   <Form.Control type="file" accept="image/*" onChange={(e) => setAfiche(e.target.files[0])} />
+                  {editId && <Form.Text className="text-muted">Sube una nueva imagen solo si deseas reemplazar la actual.</Form.Text>}
                 </Form.Group>
               </Col>
             </Row>
 
             <div className="d-flex justify-content-end gap-2">
-              <Button variant="outline-secondary" onClick={() => setShowModal(false)} disabled={saving}>Cancelar</Button>
+              <Button variant="outline-secondary" onClick={handleClose} disabled={saving}>Cancelar</Button>
               <Button type="submit" style={{ backgroundColor: 'var(--color-principal)', border: 'none' }} disabled={saving}>
-                {saving ? <Spinner animation="border" size="sm" /> : 'Subir Charla'}
+                {saving ? <Spinner animation="border" size="sm" /> : (editId ? 'Guardar Cambios' : 'Subir Charla')}
               </Button>
             </div>
           </Form>
