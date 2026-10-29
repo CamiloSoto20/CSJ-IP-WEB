@@ -30,6 +30,8 @@ const PanelSoporte = () => {
   const [solicitudesPassword, setSolicitudesPassword] = useState([]);
   const [perfilSoporte, setPerfilSoporte] = useState({ nombre: 'Cargando...', rol: 'Soporte TI' });
 
+  const [codigosIngresados, setCodigosIngresados] = useState({});
+
   // Estados de selección y formularios
   const [usuarioSeleccionado, setUsuarioSeleccionado] = useState(null);
   const [nuevaPassword, setNuevaPassword] = useState('');
@@ -231,6 +233,17 @@ const PanelSoporte = () => {
     }
   };
 
+  const handleToggleEstado = async (id, estadoActual) => {
+    const nuevoEstado = estadoActual === 'Activo' ? 'Inactivo' : 'Activo';
+    try {
+      const { error } = await supabase.from('perfiles').update({ estado: nuevoEstado }).eq('id', id);
+      if (error) throw error;
+      fetchUsuarios();
+    } catch (error) {
+      console.error("Error al cambiar estado:", error);
+    }
+  };
+
   const handleBorrarCache = () => {
     if (window.confirm("¿Forzar recarga y limpiar caché?")) {
       setUsuarios([]);
@@ -239,7 +252,6 @@ const PanelSoporte = () => {
     }
   };
 
-  // NUEVO: Se guarda como categoría 'GLOBAL'
   const handleEnviarAviso = async (e) => {
     e.preventDefault();
     setSaving(true);
@@ -260,15 +272,37 @@ const PanelSoporte = () => {
     }
   };
 
-  const handleCambiarPassword = (e) => {
+  const handleCambiarPassword = async (e) => {
     e.preventDefault();
     setSaving(true);
-    setTimeout(() => {
-      alert(`Contraseña actualizada exitosamente para ${usuarioSeleccionado?.nombre}. (Simulación UI)`);
-      setSaving(false);
+    try {
+      const { error: rpcError } = await supabase.rpc('admin_update_user_password', {
+        target_user_id: usuarioSeleccionado.id,
+        new_password: nuevaPassword
+      });
+
+      if (rpcError) throw rpcError;
+
+      const solicitudActiva = solicitudesPassword.find(
+        s => s.correo === usuarioSeleccionado.correo && s.estado === 'Aprobado'
+      );
+
+      if (solicitudActiva) {
+        await supabase
+          .from('solicitudes_password')
+          .update({ estado: 'Completado' })
+          .eq('id', solicitudActiva.id);
+      }
+
+      alert(`Contraseña actualizada exitosamente para ${usuarioSeleccionado?.nombre}. El botón de reseteo ha sido bloqueado.`);
       setShowPasswordModal(false);
       setNuevaPassword('');
-    }, 800);
+      fetchSolicitudesPassword();
+    } catch (error) {
+      alert("Error al actualizar la contraseña: " + error.message);
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleResolverMensaje = async (id) => {
@@ -281,23 +315,59 @@ const PanelSoporte = () => {
     }
   };
 
-  const handleResolverSolicitudPassword = async (id, nuevoEstado, correo) => {
+  const handleResolverSolicitudPassword = async (id, nuevoEstado, correo, codigoGuardado, expiraEn) => {
     try {
-      const { error } = await supabase.from('solicitudes_password').update({ estado: nuevoEstado }).eq('id', id);
-      if (error) throw error;
-
       if (nuevoEstado === 'Aprobado') {
-        const { error: resetError } = await supabase.auth.resetPasswordForEmail(correo);
-        if (resetError) throw resetError;
-        alert(`✅ Solicitud aprobada. Se ha enviado un correo con el enlace de recuperación a ${correo}.`);
+        const codigoDigitado = codigosIngresados[id];
+
+        if (!codigoDigitado || codigoDigitado.trim() === '') {
+          return alert("Debes ingresar el código de 6 caracteres entregado por el usuario.");
+        }
+
+        if (codigoDigitado.trim().toUpperCase() !== codigoGuardado) {
+          return alert("❌ El código ingresado no coincide con el código de seguridad.");
+        }
+
+        if (new Date() > new Date(expiraEn)) {
+          await supabase.from('solicitudes_password').update({ estado: 'Expirado' }).eq('id', id);
+          fetchSolicitudesPassword();
+          return alert("❌ Este código ha superado las 5 horas de validez y ha expirado.");
+        }
+
+        const { error } = await supabase.from('solicitudes_password').update({ estado: 'Aprobado' }).eq('id', id);
+        if (error) throw error;
+
+        alert(`✅ Código OTP validado correctamente.\nEl botón "Reset Pass" se ha desbloqueado en la tabla de usuarios para ${correo}.`);
       } else {
-        alert(`❌ Solicitud denegada para ${correo}.`);
+        const { error } = await supabase.from('solicitudes_password').update({ estado: nuevoEstado }).eq('id', id);
+        if (error) throw error;
+        alert(`❌ Solicitud ${nuevoEstado.toLowerCase()} para ${correo}.`);
       }
 
+      setCodigosIngresados(prev => ({ ...prev, [id]: '' }));
       fetchSolicitudesPassword();
     } catch (error) {
       alert("Error al gestionar la solicitud: " + error.message);
     }
+  };
+
+  const checkPermisoReset = (correo) => {
+    const hace24Horas = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    return solicitudesPassword.some(s =>
+      s.correo === correo &&
+      s.estado === 'Aprobado' &&
+      new Date(s.created_at) > hace24Horas
+    );
+  };
+
+  // NUEVA FUNCIÓN QUE SOLUCIONA EL DESFASE DE FECHAS (CORTA EL STRING)
+  const formatearFechaCita = (fechaStr) => {
+    if (!fechaStr) return 'N/A';
+    const partes = fechaStr.split('-');
+    if (partes.length === 3) {
+      return `${partes[2]}/${partes[1]}/${partes[0]}`; // Formato DD/MM/YYYY
+    }
+    return fechaStr;
   };
 
   const mensajesPendientes = mensajesSoporte.filter(m => m.estado === 'Pendiente');
@@ -327,9 +397,7 @@ const PanelSoporte = () => {
               <img src={logoCSJ} alt="Logo" style={{ maxWidth: '60px' }} onError={(e) => e.target.style.display = 'none'} />
               <div>
                 <h2 style={{ color: isDarkMode ? '#78BE20' : 'var(--color-principal)', fontWeight: 'bold', margin: 0 }}>Panel de Soporte TI</h2>
-                <p className="text-muted mb-0">
-                  <span className="fw-bold">{perfilSoporte.nombre}</span> | <span className="text-capitalize">{perfilSoporte.rol}</span> | CSJ
-                </p>
+                <p className="text-muted mb-0">Gestión de cuentas - <span className="fw-bold">{perfilSoporte.nombre}</span></p>
               </div>
             </div>
             <div className="d-flex gap-2">
@@ -435,11 +503,29 @@ const PanelSoporte = () => {
                               </td>
                               <td><Badge bg={usr.estado === 'Activo' ? 'success' : 'danger'}>{usr.estado || 'Activo'}</Badge></td>
                               <td className="text-end">
-                                <Button variant="outline-warning" size="sm" className="me-2" onClick={() => { setUsuarioSeleccionado(usr); setShowPasswordModal(true); }}>
-                                  Reset Pass
-                                </Button>
-                                <Button variant="outline-danger" size="sm" onClick={() => handleEliminarUsuario(usr.id, usr.nombre)}>
-                                  Eliminar
+                                {checkPermisoReset(usr.correo) ? (
+                                  <Button
+                                    variant="warning"
+                                    size="sm"
+                                    className="me-2 fw-bold shadow-sm"
+                                    onClick={() => { setUsuarioSeleccionado(usr); setShowPasswordModal(true); }}
+                                  >
+                                    🔓 Reset Pass
+                                  </Button>
+                                ) : (
+                                  <Button
+                                    variant="outline-secondary"
+                                    size="sm"
+                                    className="me-2"
+                                    disabled
+                                    title="Requiere validar código OTP en Solicitudes de Clave"
+                                  >
+                                    🔒 Reset Pass
+                                  </Button>
+                                )}
+
+                                <Button variant={usr.estado === 'Activo' ? 'outline-danger' : 'outline-success'} size="sm" onClick={() => handleToggleEstado(usr.id, usr.estado)}>
+                                  {usr.estado === 'Activo' ? 'Bloquear' : 'Activar'}
                                 </Button>
                               </td>
                             </tr>
@@ -454,9 +540,7 @@ const PanelSoporte = () => {
           </Row>
 
           <Modal show={showInboxModal} onHide={() => setShowInboxModal(false)} size="lg" centered>
-            <Modal.Header closeButton>
-              <Modal.Title className="fw-bold text-danger">📥 Bandeja de Soporte TI</Modal.Title>
-            </Modal.Header>
+            <Modal.Header closeButton><Modal.Title className="fw-bold text-danger">📥 Bandeja de Soporte TI</Modal.Title></Modal.Header>
             <Modal.Body style={{ maxHeight: '60vh', overflowY: 'auto' }}>
               {mensajesSoporte.length === 0 ? (
                 <div className="text-center py-5">
@@ -474,16 +558,12 @@ const PanelSoporte = () => {
                             <span className="small text-muted fw-bold d-block">De: {msg.perfiles?.nombre} ({msg.perfiles?.correo})</span>
                             <span className="small text-muted">{new Date(msg.created_at).toLocaleString('es-CL')}</span>
                           </div>
-                          <Badge bg={msg.estado === 'Pendiente' ? 'warning' : 'success'} text={msg.estado === 'Pendiente' ? 'dark' : 'light'}>
-                            {msg.estado}
-                          </Badge>
+                          <Badge bg={msg.estado === 'Pendiente' ? 'warning' : 'success'} text={msg.estado === 'Pendiente' ? 'dark' : 'light'}>{msg.estado}</Badge>
                         </div>
                         <p className="small mb-3 mt-2" style={{ whiteSpace: 'pre-wrap' }}>{msg.mensaje}</p>
                         {msg.estado === 'Pendiente' && (
                           <div className="text-end">
-                            <Button variant="outline-success" size="sm" onClick={() => handleResolverMensaje(msg.id)}>
-                              ✓ Marcar como Resuelto
-                            </Button>
+                            <Button variant="outline-success" size="sm" onClick={() => handleResolverMensaje(msg.id)}>✓ Marcar como Resuelto</Button>
                           </div>
                         )}
                       </Card.Body>
@@ -495,23 +575,14 @@ const PanelSoporte = () => {
           </Modal>
 
           <Modal show={showPasswordRequestsModal} onHide={() => setShowPasswordRequestsModal(false)} size="lg" centered>
-            <Modal.Header closeButton>
-              <Modal.Title className="fw-bold text-warning">🔑 Solicitudes de Recuperación</Modal.Title>
-            </Modal.Header>
-            <Modal.Body style={{ maxHeight: '60vh', overflowY: 'auto' }}>
-
+            <Modal.Header closeButton><Modal.Title className="fw-bold text-warning">🔑 Validar Códigos de Recuperación</Modal.Title></Modal.Header>
+            <Modal.Body style={{ maxHeight: '65vh', overflowY: 'auto' }}>
               <div className="d-flex justify-content-between align-items-center mb-3">
-                <p className="text-muted small mb-0">Listado en tiempo real de peticiones anónimas</p>
-                <Button variant="outline-secondary" size="sm" onClick={fetchSolicitudesPassword} disabled={refreshing}>
-                  {refreshing ? <Spinner size="sm" /> : '🔄 Actualizar Manualmente'}
-                </Button>
+                <p className="text-muted small mb-0">Ingresa el código OTP (Válido 5 hrs) para autorizar cambio de clave.</p>
+                <Button variant="outline-secondary" size="sm" onClick={fetchSolicitudesPassword} disabled={refreshing}>{refreshing ? <Spinner size="sm" /> : '🔄 Actualizar'}</Button>
               </div>
-
               {solicitudesPassword.length === 0 ? (
-                <div className="text-center py-5">
-                  <h5 className="text-muted fw-bold">Bandeja Vacía</h5>
-                  <p className="text-muted small">No hay solicitudes de recuperación de contraseña pendientes.</p>
-                </div>
+                <div className="text-center py-5"><h5 className="text-muted fw-bold">Bandeja Vacía</h5></div>
               ) : (
                 <div className="d-flex flex-column gap-3">
                   {solicitudesPassword.map(solicitud => (
@@ -519,22 +590,18 @@ const PanelSoporte = () => {
                       <Card.Body>
                         <div className="d-flex justify-content-between align-items-start mb-2">
                           <div>
-                            <h6 className="fw-bold mb-1">Solicitud de Restablecimiento</h6>
-                            <span className="small text-muted fw-bold d-block">Correo: {solicitud.correo}</span>
-                            <span className="small text-muted">{new Date(solicitud.created_at).toLocaleString('es-CL')}</span>
+                            <span className="small text-muted fw-bold d-block">Solicitud de: {solicitud.correo}</span>
+                            <span className="small text-muted d-block">Generada: {new Date(solicitud.created_at).toLocaleString('es-CL')}</span>
                           </div>
-                          <Badge bg={solicitud.estado === 'Pendiente' ? 'warning' : solicitud.estado === 'Aprobado' ? 'success' : 'danger'} text={solicitud.estado === 'Pendiente' ? 'dark' : 'light'}>
-                            {solicitud.estado}
-                          </Badge>
+                          <Badge bg={solicitud.estado === 'Pendiente' ? 'warning' : solicitud.estado === 'Aprobado' ? 'success' : 'danger'} text={solicitud.estado === 'Pendiente' ? 'dark' : 'light'}>{solicitud.estado}</Badge>
                         </div>
                         {solicitud.estado === 'Pendiente' && (
-                          <div className="text-end mt-3">
-                            <Button variant="outline-danger" size="sm" className="me-2" onClick={() => handleResolverSolicitudPassword(solicitud.id, 'Denegado', solicitud.correo)}>
-                              ❌ Denegar
-                            </Button>
-                            <Button variant="outline-success" size="sm" onClick={() => handleResolverSolicitudPassword(solicitud.id, 'Aprobado', solicitud.correo)}>
-                              ✓ Permitir y Restablecer
-                            </Button>
+                          <div className="d-flex align-items-center justify-content-between gap-3 mt-3 pt-3 border-top">
+                            <Button variant="outline-danger" size="sm" onClick={() => handleResolverSolicitudPassword(solicitud.id, 'Denegado', solicitud.correo, solicitud.codigo, solicitud.expira_en)}>❌ Rechazar</Button>
+                            <div className="d-flex align-items-center gap-2">
+                              <Form.Control size="sm" type="text" placeholder="Escribe Código" style={{ width: '135px', textTransform: 'uppercase', textAlign: 'center', letterSpacing: '1px', fontWeight: 'bold' }} value={codigosIngresados[solicitud.id] || ''} onChange={(e) => setCodigosIngresados({ ...codigosIngresados, [solicitud.id]: e.target.value.toUpperCase() })} />
+                              <Button variant="success" size="sm" onClick={() => handleResolverSolicitudPassword(solicitud.id, 'Aprobado', solicitud.correo, solicitud.codigo, solicitud.expira_en)}>✓ Validar OTP</Button>
+                            </div>
                           </div>
                         )}
                       </Card.Body>
@@ -546,10 +613,11 @@ const PanelSoporte = () => {
           </Modal>
 
           <Modal show={showCreateModal} onHide={() => setShowCreateModal(false)} centered>
-            <Modal.Header closeButton><Modal.Title className="fs-5 fw-bold" style={{ color: 'var(--color-principal)' }}>Crear Nuevo Usuario</Modal.Title></Modal.Header>
+            <Modal.Header closeButton>
+              <Modal.Title className="fs-5 fw-bold" style={{ color: 'var(--color-principal)' }}>Crear Nuevo Usuario</Modal.Title>
+            </Modal.Header>
             <Modal.Body>
               <Form onSubmit={handleCreateUsuario}>
-
                 <Form.Group className="mb-3">
                   <Form.Label className="small fw-bold">Rol del Usuario</Form.Label>
                   <Form.Select name="rol" value={formData.rol} onChange={handleChange}>
@@ -559,17 +627,14 @@ const PanelSoporte = () => {
                     <option value="soporte">Soporte TI</option>
                   </Form.Select>
                 </Form.Group>
-
                 <Row className="mb-3">
                   <Col md={4}><Form.Label className="small fw-bold">RUT</Form.Label><Form.Control name="rut" value={formData.rut} onChange={handleChange} required /></Col>
                   <Col md={8}><Form.Label className="small fw-bold">Nombre</Form.Label><Form.Control name="nombre" value={formData.nombre} onChange={handleChange} required /></Col>
                 </Row>
-
                 <Form.Group className="mb-3">
                   <Form.Label className="small fw-bold">Correo @csj.cl</Form.Label>
                   <Form.Control type="email" name="correo" value={formData.correo} onChange={handleChange} required />
                 </Form.Group>
-
                 {formData.rol === 'estudiante' && (
                   <Form.Group className="mb-3">
                     <Form.Label className="small fw-bold">Carrera</Form.Label>
@@ -579,25 +644,15 @@ const PanelSoporte = () => {
                       <option value="Técnico Trabajo Social">Técnico Trabajo Social</option>
                       <option value="Otro">Otro...</option>
                     </Form.Select>
-
                     {formData.carreraSelect === 'Otro' && (
-                      <Form.Control
-                        className="mt-2"
-                        name="carreraOtro"
-                        placeholder="Especifique la carrera"
-                        value={formData.carreraOtro}
-                        onChange={handleChange}
-                        required
-                      />
+                      <Form.Control className="mt-2" name="carreraOtro" placeholder="Especifique la carrera" value={formData.carreraOtro} onChange={handleChange} required />
                     )}
                   </Form.Group>
                 )}
-
                 <Form.Group className="mb-4">
                   <Form.Label className="small fw-bold">Contraseña Temporal</Form.Label>
                   <Form.Control type="password" name="password" value={formData.password} onChange={handleChange} required minLength={6} />
                 </Form.Group>
-
                 <Button type="submit" className="w-100 fw-bold" style={{ backgroundColor: 'var(--color-principal)', border: 'none' }} disabled={saving}>
                   {saving ? <Spinner size="sm" /> : 'Registrar Cuenta'}
                 </Button>
@@ -606,21 +661,27 @@ const PanelSoporte = () => {
           </Modal>
 
           <Modal show={showPasswordModal} onHide={() => setShowPasswordModal(false)} centered>
-            <Modal.Header closeButton><Modal.Title className="fs-5 fw-bold">Resetear Contraseña</Modal.Title></Modal.Header>
+            <Modal.Header closeButton>
+              <Modal.Title className="fs-5 fw-bold">Resetear Contraseña</Modal.Title>
+            </Modal.Header>
             <Modal.Body>
               <Form onSubmit={handleCambiarPassword}>
-                <p className="text-muted small mb-4">Actualizar credenciales de acceso para <strong>{usuarioSeleccionado?.nombre}</strong>.</p>
+                <p className="text-muted small mb-4">Ingresa una nueva clave de acceso para <strong>{usuarioSeleccionado?.nombre}</strong>. El botón de reseteo se bloqueará al terminar.</p>
                 <Form.Group className="mb-4">
                   <Form.Label className="small fw-bold">Nueva Contraseña Temporal</Form.Label>
                   <Form.Control type="text" value={nuevaPassword} onChange={(e) => setNuevaPassword(e.target.value)} required minLength={6} />
                 </Form.Group>
-                <Button type="submit" variant="warning" className="w-100 fw-bold" disabled={saving}>{saving ? <Spinner size="sm" /> : 'Confirmar Cambio'}</Button>
+                <Button type="submit" variant="warning" className="w-100 fw-bold" disabled={saving}>
+                  {saving ? <Spinner size="sm" /> : 'Confirmar Cambio Seguro'}
+                </Button>
               </Form>
             </Modal.Body>
           </Modal>
 
           <Modal show={showAvisoModal} onHide={() => setShowAvisoModal(false)} centered>
-            <Modal.Header closeButton><Modal.Title className="fs-5 fw-bold">Enviar Aviso Global</Modal.Title></Modal.Header>
+            <Modal.Header closeButton>
+              <Modal.Title className="fs-5 fw-bold">Enviar Aviso Global</Modal.Title>
+            </Modal.Header>
             <Modal.Body>
               <Form onSubmit={handleEnviarAviso}>
                 <p className="text-muted small mb-3">Esta alerta irrumpirá en la pantalla de coordinadoras y estudiantes en su próximo inicio de sesión.</p>
@@ -628,12 +689,13 @@ const PanelSoporte = () => {
                   <Form.Label className="small fw-bold">Mensaje de Mantenimiento / Aviso Crítico</Form.Label>
                   <Form.Control as="textarea" rows={3} value={avisoTexto} onChange={(e) => setAvisoTexto(e.target.value)} placeholder="Ej: Plataforma en mantenimiento el viernes a las 18:00 hrs..." required />
                 </Form.Group>
-                <Button type="submit" className="w-100 fw-bold" style={{ backgroundColor: '#dc3545', border: 'none' }} disabled={saving}>{saving ? <Spinner size="sm" /> : 'Disparar Alerta Global'}</Button>
+                <Button type="submit" className="w-100 fw-bold" style={{ backgroundColor: '#dc3545', border: 'none' }} disabled={saving}>
+                  {saving ? <Spinner size="sm" /> : 'Disparar Alerta Global'}
+                </Button>
               </Form>
             </Modal.Body>
           </Modal>
 
-          {/* NUEVA VISTA LIMPIA PARA CITAS AGENDADAS */}
           <Modal show={showFichasModal} onHide={() => setShowFichasModal(false)} size="lg" centered>
             <Modal.Header closeButton>
               <Modal.Title className="fw-bold" style={{ color: 'var(--color-principal)' }}>Citas Agendadas en Vivo</Modal.Title>
@@ -662,7 +724,8 @@ const PanelSoporte = () => {
                     {citasAgendadas.map((cita) => (
                       <tr key={cita.id}>
                         <td className="fw-bold text-dark">{cita.rut || 'N/A'}</td>
-                        <td className="text-secondary fw-medium">{new Date(cita.fecha_cita).toLocaleDateString('es-CL')}</td>
+                        {/* SE APLICA EL FORMATEADOR DE CADENAS DE TEXTO PARA QUE NO HAYA DESFASE */}
+                        <td className="text-secondary fw-medium">{formatearFechaCita(cita.fecha_cita)}</td>
                         <td className="text-primary fw-bold">{cita.hora_cita?.substring(0, 5)}</td>
                       </tr>
                     ))}
