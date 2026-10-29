@@ -5,7 +5,6 @@ import Calendar from 'react-calendar';
 import 'react-calendar/dist/Calendar.css';
 import { supabase } from '../lib/supabase';
 
-// IMPORTACIÓN DEL SONIDO DE NOTIFICACIÓN
 import notificacionSound from '../assets/notificacion.mp3';
 
 const Dashboard = () => {
@@ -15,24 +14,24 @@ const Dashboard = () => {
   const [stats, setStats] = useState({ fichas: 0, citasHoy: 0, charlas: 0, estudiantes: 0 });
   const [loading, setLoading] = useState(true);
 
-  // Estados para el Calendario (Agenda Personal + Citas)
   const [fecha, setFecha] = useState(new Date());
   const [misCitas, setMisCitas] = useState([]);
   const [miAgenda, setMiAgenda] = useState([]);
 
-  // Estados del Modal
   const [showRecordatorioModal, setShowRecordatorioModal] = useState(false);
   const [citasDelDiaSeleccionado, setCitasDelDiaSeleccionado] = useState([]);
   const [agendaDelDiaSeleccionado, setAgendaDelDiaSeleccionado] = useState([]);
 
-  // Estados Formulario Nueva Actividad
   const [showFormAgenda, setShowFormAgenda] = useState(false);
   const [savingAgenda, setSavingAgenda] = useState(false);
   const [nuevaActividad, setNuevaActividad] = useState({ titulo: '', descripcion: '', hora: '' });
 
-  // Estados para el Toast de Notificación
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
+
+  // ESTADO PARA AVISO GLOBAL DE SOPORTE
+  const [showGlobalNoticeModal, setShowGlobalNoticeModal] = useState(false);
+  const [globalNotice, setGlobalNotice] = useState(null);
 
   const fetchDashboardData = async () => {
     try {
@@ -42,18 +41,15 @@ const Dashboard = () => {
       const userId = authData.user.id;
       setPerfilId(userId);
 
-      // 1. Obtener nombre
       const { data: perfil } = await supabase.from('perfiles').select('nombre').eq('id', userId).single();
       if (perfil) setNombre(perfil.nombre.split(' ')[0]);
 
-      // 2. Obtener Citas asignadas a la coordinadora
       const { data: misCitasRes } = await supabase
         .from('appointments')
         .select('id, fecha_cita, hora_cita, estado, nombre, rut')
         .eq('estudiante_id', userId);
       setMisCitas(misCitasRes || []);
 
-      // 3. Obtener Agenda Personal (Reuniones/Recordatorios)
       const { data: agendaRes } = await supabase
         .from('personal_agenda')
         .select('*')
@@ -61,7 +57,6 @@ const Dashboard = () => {
         .order('hora', { ascending: true });
       setMiAgenda(agendaRes || []);
 
-      // 4. Obtener métricas globales
       const hoy = new Date().toISOString().split('T')[0];
       const [fichasRes, citasRes, charlasRes, estudiantesRes] = await Promise.all([
         supabase.from('social_records').select('*', { count: 'exact', head: true }),
@@ -79,6 +74,23 @@ const Dashboard = () => {
         estudiantes: estudiantesRes.count || 0
       });
 
+      // BUSCAR AVISO GLOBAL RECIENTE
+      const { data: avisoRes } = await supabase
+        .from('information')
+        .select('*')
+        .eq('categoria', 'GLOBAL')
+        .order('created_at', { ascending: false })
+        .limit(1);
+
+      if (avisoRes && avisoRes.length > 0) {
+        const ultimoAviso = avisoRes[0];
+        if (!sessionStorage.getItem(`avisoGlobal_${ultimoAviso.id}`)) {
+          setGlobalNotice(ultimoAviso);
+          setShowGlobalNoticeModal(true);
+          sessionStorage.setItem(`avisoGlobal_${ultimoAviso.id}`, 'true');
+        }
+      }
+
     } catch (error) {
       console.error("Error al cargar métricas:", error);
     } finally {
@@ -90,7 +102,6 @@ const Dashboard = () => {
     fetchDashboardData();
   }, []);
 
-  // --- Helpers de Fecha y Calendario ---
   const getLocalDateString = (date) => {
     const offset = date.getTimezoneOffset();
     const localDate = new Date(date.getTime() - (offset * 60 * 1000));
@@ -101,7 +112,6 @@ const Dashboard = () => {
   const citasHoyText = misCitas.filter(cita => cita.fecha_cita === fechaFormateada);
   const agendaHoyText = miAgenda.filter(item => item.fecha === fechaFormateada);
 
-  // --- EFECTO DE NOTIFICACIÓN DE AGENDA ---
   useEffect(() => {
     if (loading) return;
 
@@ -159,7 +169,6 @@ const Dashboard = () => {
     setShowRecordatorioModal(true);
   };
 
-  // --- Gestión de Agenda Personal ---
   const handleGuardarActividad = async (e) => {
     e.preventDefault();
     setSavingAgenda(true);
@@ -315,7 +324,6 @@ const Dashboard = () => {
                   </Card>
                 </Col>
 
-                {/* NUEVO ACCESO: RESUMEN GENERAL */}
                 <Col sm={12}>
                   <Card className="border-0 shadow-sm rounded-3 hover-card" style={{ background: 'linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%)' }}>
                     <Card.Body className="p-4 d-flex flex-column flex-sm-row align-items-center justify-content-between gap-3">
@@ -445,6 +453,23 @@ const Dashboard = () => {
         <Modal.Footer className="border-0">
           <Button variant="outline-secondary" className="fw-bold" onClick={() => setShowRecordatorioModal(false)}>
             Cerrar Agenda
+          </Button>
+        </Modal.Footer>
+      </Modal>
+
+      {/* MODAL AVISO GLOBAL (SOPORTE) */}
+      <Modal show={showGlobalNoticeModal} onHide={() => setShowGlobalNoticeModal(false)} centered backdrop="static" keyboard={false}>
+        <Modal.Header style={{ backgroundColor: '#dc3545', color: 'white' }}>
+          <Modal.Title className="fw-bold fs-5">📢 Aviso Importante del Sistema</Modal.Title>
+        </Modal.Header>
+        <Modal.Body className="p-4 text-center">
+          <div className="mb-3"><span style={{ fontSize: '3rem' }}>⚠️</span></div>
+          <h5 className="fw-bold text-dark">{globalNotice?.titulo}</h5>
+          <p className="mt-3 mb-0 text-muted" style={{ fontSize: '1.1rem' }}>{globalNotice?.descripcion_corta}</p>
+        </Modal.Body>
+        <Modal.Footer className="justify-content-center border-0 bg-light">
+          <Button variant="danger" className="fw-bold px-4 rounded-pill" onClick={() => setShowGlobalNoticeModal(false)}>
+            Entendido
           </Button>
         </Modal.Footer>
       </Modal>
