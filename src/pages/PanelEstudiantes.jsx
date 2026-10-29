@@ -461,7 +461,7 @@ const PanelEstudiante = () => {
                         </Badge>
                       </div>
                       <span className="text-muted fw-medium" style={{ fontSize: '0.70rem' }}>
-                        {isOnline ? '🟢 En línea' : `⚪ Offline / Últ. vez: ${formatearFecha(p.created_at)}`}
+                        {isOnline ? '🟢 En línea' : `⚪ Offline`}
                       </span>
                     </div>
                   );

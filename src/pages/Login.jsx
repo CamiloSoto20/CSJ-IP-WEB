@@ -2,17 +2,22 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { Form, Button, Alert, Spinner } from 'react-bootstrap';
+import { useAuth } from '../context/AuthContext';
 import './Login.css';
 import logoClinica from '../assets/LOGO_CSJ.jpg';
 
 const Login = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
   const [isLightMode, setIsLightMode] = useState(true);
   const navigate = useNavigate();
+
+  // Traemos la lista de usuarios online
+  const { usuariosOnline } = useAuth(); 
 
   const toggleTheme = () => {
     setIsLightMode(!isLightMode);
@@ -24,9 +29,26 @@ const Login = () => {
     setError(null);
 
     try {
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
-      if (error) throw error;
+      // NUEVO: Verificamos si ya existe una sesión activa en este navegador ANTES de procesar un nuevo login
+      const { data: { session: existingSession } } = await supabase.auth.getSession();
+      if (existingSession) {
+        throw new Error("Ya hay una sesión activa en este navegador. Cierra la sesión actual antes de ingresar con otra cuenta.");
+      }
+
+      // 1. Validar credenciales
+      const { data, error: signInError } = await supabase.auth.signInWithPassword({ email, password });
+      if (signInError) throw signInError;
       
+      const user = data?.user;
+
+      // 2. BARRERA DE SESIÓN ÚNICA: Validamos si el ID del usuario ya figura como conectado
+      if (user && usuariosOnline && usuariosOnline.includes(user.id)) {
+        // Cerramos la sesión recién creada para bloquear el paso
+        await supabase.auth.signOut();
+        throw new Error("Tu cuenta ya tiene una sesión activa. Debes cerrarla en el otro dispositivo o ventana para poder ingresar.");
+      }
+
+      // 3. Redirección según rol
       const userEmail = email.toLowerCase();
       if (userEmail.includes('soporte')) {
         navigate('/panel-soporte');
@@ -56,7 +78,6 @@ const Login = () => {
       <div className="login-form-section">
         <div className="login-form-wrapper">
           
-          {/* BOTÓN VOLVER INTEGRADO AL CONTENIDO */}
           <Button 
             variant="link" 
             className="text-muted text-decoration-none p-0 mb-4 fw-bold d-flex align-items-center gap-2 btn-volver" 
@@ -98,13 +119,36 @@ const Login = () => {
               <div className="input-group-custom">
                 <span className="input-icon">🔒</span>
                 <Form.Control
-                  type="password"
-                  className="custom-input"
+                  type={showPassword ? "text" : "password"}
+                  className="custom-input pe-5"
                   placeholder="Ingresa tu contraseña"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
+                  style={{ paddingRight: '45px' }}
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  tabIndex="-1"
+                  style={{
+                    position: 'absolute',
+                    right: '15px',
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    background: 'none',
+                    border: 'none',
+                    cursor: 'pointer',
+                    zIndex: 10,
+                    fontSize: '1.2rem',
+                    opacity: 0.65,
+                    transition: 'opacity 0.2s'
+                  }}
+                  onMouseOver={(e) => e.currentTarget.style.opacity = 1}
+                  onMouseOut={(e) => e.currentTarget.style.opacity = 0.65}
+                >
+                  {showPassword ? '🙈' : '👁️'}
+                </button>
               </div>
             </Form.Group>
 
