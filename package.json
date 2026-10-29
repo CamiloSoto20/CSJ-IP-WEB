@@ -13,6 +13,7 @@
     "@supabase/supabase-js": "^2.117.3",
     "bootstrap": "^5.3.8",
     "docxtemplater": "^3.71.0",
+    "exceljs": "^4.4.0",
     "file-saver": "^2.0.5",
     "pizzip": "^3.3.0",
     "react": "^19.2.8",
@@ -29,5 +30,10 @@
     "@vitejs/plugin-react": "^6.1.0",
     "oxlint": "^1.79.0",
     "vite": "^8.2.2"
+  },
+  "overrides": {
+    "exceljs": {
+      "uuid": "11.1.1"
+    }
   }
 }
