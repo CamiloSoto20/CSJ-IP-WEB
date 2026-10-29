@@ -11,7 +11,10 @@ const Informacion = () => {
   const [showModalNoticia, setShowModalNoticia] = useState(false);
   const [showModalAviso, setShowModalAviso] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [editId, setEditId] = useState(null); // NUEVO: Estado de edición
+  const [editId, setEditId] = useState(null); 
+  
+  // NUEVO: Estado para manejar el archivo de imagen
+  const [archivoImagen, setArchivoImagen] = useState(null);
 
   const [formData, setFormData] = useState({
     titulo: '',
@@ -19,7 +22,8 @@ const Informacion = () => {
     contenido_completo: '',
     categoria: '',
     fuente: '',
-    autor: ''
+    autor: '',
+    imagen_url: '' // Nuevo campo en el estado
   });
 
   const fetchPublicaciones = async () => {
@@ -46,7 +50,8 @@ const Informacion = () => {
     setShowModalNoticia(false);
     setShowModalAviso(false);
     setEditId(null);
-    setFormData({ titulo: '', descripcion_corta: '', contenido_completo: '', categoria: '', fuente: '', autor: '' });
+    setArchivoImagen(null); // Limpiamos el archivo al cerrar
+    setFormData({ titulo: '', descripcion_corta: '', contenido_completo: '', categoria: '', fuente: '', autor: '', imagen_url: '' });
   };
 
   const handleChange = (e) => {
@@ -63,28 +68,31 @@ const Informacion = () => {
 
   const abrirModalNoticia = () => {
     setEditId(null);
-    setFormData({ titulo: '', descripcion_corta: '', contenido_completo: '', categoria: 'Noticia', fuente: '', autor: '' });
+    setArchivoImagen(null);
+    setFormData({ titulo: '', descripcion_corta: '', contenido_completo: '', categoria: 'Noticia', fuente: '', autor: '', imagen_url: '' });
     setShowModalNoticia(true);
   };
 
   const abrirModalAviso = () => {
     setEditId(null);
-    setFormData({ titulo: '', descripcion_corta: '', contenido_completo: '', categoria: 'IMPORTANTE', fuente: '', autor: '' });
+    setArchivoImagen(null);
+    setFormData({ titulo: '', descripcion_corta: '', contenido_completo: '', categoria: 'IMPORTANTE', fuente: '', autor: '', imagen_url: '' });
     setShowModalAviso(true);
   };
 
-  // NUEVO: Función para abrir edición y extraer autor/fuente de ser necesario
   const abrirModalEditar = (pub) => {
     setEditId(pub.id);
-    let extrAutor = '';
-    let extrFuente = '';
+    setArchivoImagen(null); // Reseteamos la imagen nueva
+    
+    let extrAutor = pub.autor_nombre || '';
+    let extrFuente = pub.fuente || '';
     let extrContenido = pub.contenido_completo || '';
 
-    if (pub.categoria === 'Noticia') {
+    if (['Noticia', 'Artículo Legal', 'Aporte Estudiante'].includes(pub.categoria)) {
       const matchAutor = pub.contenido_completo?.match(/Autor:\s*(.*)/);
       const matchFuente = pub.contenido_completo?.match(/Fuente original:\s*(.*)/);
-      if (matchAutor) extrAutor = matchAutor[1];
-      if (matchFuente) extrFuente = matchFuente[1];
+      if (matchAutor && !extrAutor) extrAutor = matchAutor[1];
+      if (matchFuente && !extrFuente) extrFuente = matchFuente[1];
       setShowModalNoticia(true);
     } else {
       setShowModalAviso(true);
@@ -96,7 +104,8 @@ const Informacion = () => {
       contenido_completo: extrContenido,
       categoria: pub.categoria,
       fuente: extrFuente,
-      autor: extrAutor
+      autor: extrAutor,
+      imagen_url: pub.imagen_url || '' // Cargamos la imagen si existe
     });
   };
 
@@ -116,17 +125,42 @@ const Informacion = () => {
     e.preventDefault();
     setSaving(true);
     try {
+      let finalImageUrl = formData.imagen_url || null;
+
+      // 1. Si hay una imagen seleccionada, la subimos a Storage
+      if (archivoImagen) {
+        const fileExt = archivoImagen.name.split('.').pop();
+        const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
+        const filePath = `publicaciones/${fileName}`;
+
+        const { error: uploadError } = await supabase.storage
+          .from('noticias-afiches')
+          .upload(filePath, archivoImagen);
+
+        if (uploadError) throw uploadError;
+
+        const { data: publicUrlData } = supabase.storage
+          .from('noticias-afiches')
+          .getPublicUrl(filePath);
+
+        finalImageUrl = publicUrlData.publicUrl;
+      }
+
+      // 2. Preparamos el payload con la URL de la imagen
       const payload = {
         titulo: formData.titulo,
         descripcion_corta: formData.descripcion_corta,
         categoria: formData.categoria,
-        author_id: user?.id || null
+        author_id: user?.id || null,
+        imagen_url: finalImageUrl // Se guarda en la BD
       };
 
-      if (formData.categoria === 'Noticia') {
+      if (['Noticia', 'Artículo Legal', 'Aporte Estudiante'].includes(formData.categoria)) {
         payload.contenido_completo = `Autor: ${formData.autor}\nFuente original: ${formData.fuente}`;
+        payload.autor_nombre = formData.autor;
+        payload.fuente = formData.fuente;
       } else {
-        payload.contenido_completo = formData.descripcion_corta; // Avisos usan descripcion corta
+        payload.contenido_completo = formData.descripcion_corta; 
       }
 
       if (editId) {
@@ -155,6 +189,7 @@ const Informacion = () => {
       case 'Salida': return 'warning';
       case 'Recordatorio': return 'info';
       case 'Noticia': return 'primary';
+      case 'Aporte Estudiante': return 'success';
       case 'Artículo Legal': return 'secondary';
       default: return 'dark';
     }
@@ -197,7 +232,7 @@ const Informacion = () => {
                 {publicaciones.map((pub) => (
                   <tr key={pub.id}>
                     <td className="px-4 text-secondary">
-                      {new Date(pub.fecha_publicacion).toLocaleDateString('es-CL')}
+                      {new Date(pub.fecha_publicacion || pub.created_at).toLocaleDateString('es-CL')}
                     </td>
                     <td>
                       <span className={`d-block text-dark ${['IMPORTANTE', 'Salida', 'Recordatorio'].includes(pub.categoria) ? 'fw-bolder' : 'fw-bold'}`}>
@@ -259,6 +294,15 @@ const Informacion = () => {
               <Form.Control as="textarea" rows={4} name="descripcion_corta" value={formData.descripcion_corta} onChange={handleChangeAviso} placeholder="Escribe aquí las instrucciones o el comunicado..." required />
             </Form.Group>
 
+            {/* SECCIÓN IMAGEN OPCIONAL PARA AVISOS */}
+            <Form.Group className="mb-4">
+              <Form.Label className="small fw-bold">Imagen Adjunta (Opcional)</Form.Label>
+              <Form.Control type="file" accept="image/*" onChange={(e) => setArchivoImagen(e.target.files[0])} />
+              {formData.imagen_url && !archivoImagen && (
+                <div className="mt-2 small text-muted">Ya existe una imagen cargada. Subir una nueva la reemplazará.</div>
+              )}
+            </Form.Group>
+
             <div className="d-flex justify-content-end gap-2">
               <Button variant="outline-secondary" onClick={handleClose} disabled={saving}>Cancelar</Button>
               <Button type="submit" variant="danger" className="fw-bold" disabled={saving}>
@@ -269,20 +313,34 @@ const Informacion = () => {
         </Modal.Body>
       </Modal>
 
-      {/* MODAL 2: NOTICIAS (PÁGINA PRINCIPAL) */}
+      {/* MODAL 2: NOTICIAS (PÁGINA PRINCIPAL E INFORMACIÓN) */}
       <Modal show={showModalNoticia} onHide={handleClose} size="lg" centered>
         <Modal.Header closeButton>
           <Modal.Title className="fw-bold text-success">{editId ? 'Editar Información / Noticia' : '📝 Subir Información / Noticia'}</Modal.Title>
         </Modal.Header>
         <Modal.Body>
           <Form onSubmit={handleSubmit}>
-            <Form.Group className="mb-3">
-              <Form.Label className="small fw-bold">Nombre de la Información o Noticia</Form.Label>
-              <Form.Control name="titulo" value={formData.titulo} onChange={handleChange} required placeholder="Título..." />
-            </Form.Group>
+            <Row className="mb-3">
+              <Col md={8}>
+                <Form.Group>
+                  <Form.Label className="small fw-bold">Nombre de la Información o Noticia</Form.Label>
+                  <Form.Control name="titulo" value={formData.titulo} onChange={handleChange} required placeholder="Título..." />
+                </Form.Group>
+              </Col>
+              <Col md={4}>
+                <Form.Group>
+                  <Form.Label className="small fw-bold">Categoría</Form.Label>
+                  <Form.Select name="categoria" value={formData.categoria} onChange={handleChange} required>
+                    <option value="Noticia">📰 Noticia</option>
+                    <option value="Artículo Legal">⚖️ Artículo Legal</option>
+                    <option value="Aporte Estudiante">📝 Aporte Estudiante</option>
+                  </Form.Select>
+                </Form.Group>
+              </Col>
+            </Row>
 
             <Form.Group className="mb-3">
-              <Form.Label className="small fw-bold">Descripción</Form.Label>
+              <Form.Label className="small fw-bold">Descripción / Resumen</Form.Label>
               <Form.Control as="textarea" rows={4} name="descripcion_corta" value={formData.descripcion_corta} onChange={handleChange} required placeholder="Desarrollo de la información..." />
             </Form.Group>
 
@@ -300,6 +358,15 @@ const Informacion = () => {
                 </Form.Group>
               </Col>
             </Row>
+
+            {/* SECCIÓN IMAGEN PARA NOTICIAS */}
+            <Form.Group className="mb-4">
+              <Form.Label className="small fw-bold">Afiche o Imagen Principal (Opcional)</Form.Label>
+              <Form.Control type="file" accept="image/*" onChange={(e) => setArchivoImagen(e.target.files[0])} />
+              {formData.imagen_url && !archivoImagen && (
+                <div className="mt-2 small text-muted">Ya existe una imagen cargada. Subir una nueva la reemplazará.</div>
+              )}
+            </Form.Group>
 
             <div className="d-flex justify-content-end gap-2">
               <Button variant="outline-secondary" onClick={handleClose} disabled={saving}>Cancelar</Button>
