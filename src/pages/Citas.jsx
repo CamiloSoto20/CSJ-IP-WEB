@@ -230,7 +230,7 @@ const Citas = () => {
         </Modal.Header>
         <Modal.Body>
           <Form onSubmit={handleAsignarSubmit}>
-            <p className="text-muted small mb-3">Paciente: <strong>{citaSeleccionada?.nombre}</strong></p>
+            <p className="text-muted small mb-3">Usuario: <strong>{citaSeleccionada?.nombre}</strong></p>
             <Form.Group className="mb-4">
               <Form.Label className="fw-bold small">Seleccione al practicante</Form.Label>
               <Form.Select value={estudianteId} onChange={(e) => setEstudianteId(e.target.value)} required>

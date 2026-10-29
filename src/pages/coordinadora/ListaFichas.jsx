@@ -179,7 +179,7 @@ const ListaFichas = () => {
             <Col md={5}>
               <InputGroup>
                 <InputGroup.Text className="bg-white border-end-0">🔍</InputGroup.Text>
-                <Form.Control type="text" placeholder="Buscar paciente..." value={filtroPaciente} onChange={(e) => setFiltroPaciente(e.target.value)} className="border-start-0 ps-0" />
+                <Form.Control type="text" placeholder="Buscar usuario..." value={filtroPaciente} onChange={(e) => setFiltroPaciente(e.target.value)} className="border-start-0 ps-0" />
               </InputGroup>
             </Col>
             <Col md={4}>
@@ -218,7 +218,7 @@ const ListaFichas = () => {
                 <thead className="bg-light">
                   <tr>
                     <th className="text-muted border-0 py-3 px-4">FECHA Y HORA</th>
-                    <th className="text-muted border-0 py-3">PACIENTE</th>
+                    <th className="text-muted border-0 py-3">USUARIO</th>
                     <th className="text-muted border-0 py-3">ELABORADO POR</th>
                     <th className="text-muted border-0 py-3">ÁREA Y TIPO</th>
                     <th className="text-muted border-0 py-3">ESTADO</th>

@@ -1,9 +1,12 @@
 import { useState, useEffect } from 'react';
-import { Container, Row, Col, Card, Button, Spinner, Modal, Badge, Form } from 'react-bootstrap';
+import { Container, Row, Col, Card, Button, Spinner, Modal, Badge, Form, Toast, ToastContainer } from 'react-bootstrap';
 import { useNavigate } from 'react-router-dom';
 import Calendar from 'react-calendar';
 import 'react-calendar/dist/Calendar.css';
 import { supabase } from '../lib/supabase';
+
+// IMPORTACIÓN DEL SONIDO DE NOTIFICACIÓN
+import notificacionSound from '../assets/notificacion.mp3';
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -26,6 +29,10 @@ const Dashboard = () => {
   const [showFormAgenda, setShowFormAgenda] = useState(false);
   const [savingAgenda, setSavingAgenda] = useState(false);
   const [nuevaActividad, setNuevaActividad] = useState({ titulo: '', descripcion: '', hora: '' });
+
+  // Estados para el Toast de Notificación
+  const [showToast, setShowToast] = useState(false);
+  const [toastMessage, setToastMessage] = useState('');
 
   const fetchDashboardData = async () => {
     try {
@@ -84,15 +91,46 @@ const Dashboard = () => {
   }, []);
 
   // --- Helpers de Fecha y Calendario ---
-  const fechaFormateada = fecha.toISOString().split('T')[0];
-  const citasHoyText = misCitas.filter(cita => cita.fecha_cita === fechaFormateada);
-  const agendaHoyText = miAgenda.filter(item => item.fecha === fechaFormateada);
-
   const getLocalDateString = (date) => {
     const offset = date.getTimezoneOffset();
     const localDate = new Date(date.getTime() - (offset * 60 * 1000));
     return localDate.toISOString().split('T')[0];
   };
+
+  const fechaFormateada = getLocalDateString(fecha);
+  const citasHoyText = misCitas.filter(cita => cita.fecha_cita === fechaFormateada);
+  const agendaHoyText = miAgenda.filter(item => item.fecha === fechaFormateada);
+
+  // --- EFECTO DE NOTIFICACIÓN DE AGENDA ---
+  useEffect(() => {
+    if (loading) return;
+
+    const hoyStr = getLocalDateString(new Date());
+    const citasHoy = misCitas.filter(cita => cita.fecha_cita === hoyStr).length;
+    const agendaHoy = miAgenda.filter(item => item.fecha === hoyStr).length;
+
+    if ((citasHoy > 0 || agendaHoy > 0) && !sessionStorage.getItem('recordatorioVisto')) {
+      let mensaje = '';
+      if (citasHoy > 0 && agendaHoy > 0) {
+        mensaje = `Tienes ${citasHoy} cita(s) y ${agendaHoy} actividad(es) agendadas para hoy.`;
+      } else if (citasHoy > 0) {
+        mensaje = `Tienes ${citasHoy} cita(s) de pacientes programada(s) para hoy.`;
+      } else {
+        mensaje = `Tienes ${agendaHoy} actividad(es) personal(es) agendada(s) para hoy.`;
+      }
+
+      setToastMessage(mensaje);
+      setShowToast(true);
+      sessionStorage.setItem('recordatorioVisto', 'true');
+
+      try {
+        const audio = new Audio(notificacionSound);
+        audio.play().catch(e => console.log("El navegador bloqueó el autoplay del sonido:", e));
+      } catch (error) {
+        console.error("Error al reproducir sonido:", error);
+      }
+    }
+  }, [loading, misCitas, miAgenda]);
 
   const getEventosDelDia = (date) => {
     const dateStr = getLocalDateString(date);
@@ -102,7 +140,6 @@ const Dashboard = () => {
     };
   };
 
-  // Pintar días en el calendario
   const tileClassName = ({ date, view }) => {
     if (view === 'month') {
       const { citas, agenda } = getEventosDelDia(date);
@@ -119,7 +156,7 @@ const Dashboard = () => {
     setCitasDelDiaSeleccionado(citas);
     setAgendaDelDiaSeleccionado(agenda);
     setShowFormAgenda(false);
-    setShowRecordatorioModal(true); // Siempre abrir el modal para poder agregar actividades, incluso si está vacío
+    setShowRecordatorioModal(true);
   };
 
   // --- Gestión de Agenda Personal ---
@@ -140,9 +177,8 @@ const Dashboard = () => {
 
       setNuevaActividad({ titulo: '', descripcion: '', hora: '' });
       setShowFormAgenda(false);
-      await fetchDashboardData(); // Recargar datos
+      await fetchDashboardData();
 
-      // Actualizar estado local del modal sin cerrarlo
       const { agenda } = getEventosDelDia(fecha);
       setAgendaDelDiaSeleccionado([...agenda, { titulo: nuevaActividad.titulo, hora: nuevaActividad.hora, descripcion: nuevaActividad.descripcion }]);
 
@@ -174,9 +210,20 @@ const Dashboard = () => {
 
   return (
     <div style={{ backgroundColor: '#f8f9fa', minHeight: '100vh', padding: '1rem 2rem' }}>
-      <Container fluid className="px-0">
 
-        {/* ENCABEZADO Y SALUDO */}
+      <ToastContainer position="top-end" className="p-4" style={{ zIndex: 9999, position: 'fixed' }}>
+        <Toast show={showToast} onClose={() => setShowToast(false)} delay={10000} autohide className="shadow-lg border-0 rounded-3">
+          <Toast.Header className="text-white border-0 rounded-top" style={{ backgroundColor: 'var(--color-principal)' }}>
+            <strong className="me-auto fs-6">🔔 Recordatorio del Día</strong>
+            <small className="text-white-50">Justo ahora</small>
+          </Toast.Header>
+          <Toast.Body className="bg-white fw-bold text-dark fs-6 p-3 rounded-bottom">
+            {toastMessage}
+          </Toast.Body>
+        </Toast>
+      </ToastContainer>
+
+      <Container fluid className="px-0">
         <div className="mb-5 border-bottom pb-3 animate-up">
           <h1 className="fw-bolder mb-2" style={{ color: 'var(--color-principal)', fontSize: '2.5rem', letterSpacing: '-1px' }}>
             Bienvenida Coordinadora, {nombre} 👋
@@ -184,7 +231,6 @@ const Dashboard = () => {
           <p className="text-muted fs-5 mb-0">Visión general y gestión de atenciones de la Clínica Socio-Jurídica</p>
         </div>
 
-        {/* MÉTRICAS CONECTADAS A LA BD */}
         <Row className="g-4 mb-5 animate-up delay-1">
           <Col md={3} sm={6}>
             <Card className="border-0 shadow-sm h-100 rounded-3">
@@ -221,7 +267,6 @@ const Dashboard = () => {
         </Row>
 
         <Row className="g-4 animate-up delay-2">
-          {/* ACCESOS RÁPIDOS Y HERRAMIENTAS */}
           <Col lg={7} className="d-flex flex-column gap-4">
             <div>
               <h5 className="fw-bold mb-3" style={{ color: '#404040' }}>Herramientas Externas</h5>
@@ -246,7 +291,7 @@ const Dashboard = () => {
 
             <div>
               <h5 className="fw-bold mb-3" style={{ color: '#404040' }}>Accesos Rápidos de Gestión</h5>
-              <Row className="g-3 h-100">
+              <Row className="g-3">
                 <Col sm={6}>
                   <Card className="border-0 shadow-sm h-100 rounded-3 hover-card">
                     <Card.Body className="p-4 d-flex flex-column">
@@ -269,11 +314,29 @@ const Dashboard = () => {
                     </Card.Body>
                   </Card>
                 </Col>
+
+                {/* NUEVO ACCESO: RESUMEN GENERAL */}
+                <Col sm={12}>
+                  <Card className="border-0 shadow-sm rounded-3 hover-card" style={{ background: 'linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%)' }}>
+                    <Card.Body className="p-4 d-flex flex-column flex-sm-row align-items-center justify-content-between gap-3">
+                      <div>
+                        <h5 className="fw-bold mb-1" style={{ color: '#404040' }}>📊 Resumen General Analítico</h5>
+                        <p className="text-muted small mb-0">Visualiza métricas, porcentajes y categorización de motivos de consulta.</p>
+                      </div>
+                      <Button
+                        className="fw-bold px-4"
+                        style={{ backgroundColor: '#6c757d', border: 'none', whiteSpace: 'nowrap' }}
+                        onClick={() => navigate('/dashboard/resumen')}
+                      >
+                        Ver Estadísticas &rarr;
+                      </Button>
+                    </Card.Body>
+                  </Card>
+                </Col>
               </Row>
             </div>
           </Col>
 
-          {/* CALENDARIO (AGENDA PERSONAL) */}
           <Col lg={5}>
             <h5 className="fw-bold mb-3" style={{ color: '#404040' }}>Mi Agenda y Actividades</h5>
             <Card className="border-0 shadow-sm p-4 h-100 rounded-3 d-flex flex-column align-items-center justify-content-center">
@@ -303,7 +366,6 @@ const Dashboard = () => {
         </Row>
       </Container>
 
-      {/* MODAL DE AGENDA INTERACTIVA */}
       <Modal show={showRecordatorioModal} onHide={() => setShowRecordatorioModal(false)} centered size="lg">
         <Modal.Header closeButton style={{ backgroundColor: 'var(--color-principal)', color: 'white' }}>
           <Modal.Title className="fw-bold fs-5">
@@ -312,8 +374,6 @@ const Dashboard = () => {
         </Modal.Header>
         <Modal.Body className="bg-light p-4">
           <Row className="g-4">
-
-            {/* SECCIÓN 1: CITAS ASIGNADAS (Pacientes) */}
             <Col md={6}>
               <h6 className="fw-bold mb-3 text-success border-bottom pb-2">🩺 Citas Asignadas</h6>
               {citasDelDiaSeleccionado.length === 0 ? (
@@ -334,7 +394,6 @@ const Dashboard = () => {
               )}
             </Col>
 
-            {/* SECCIÓN 2: RECORDATORIOS Y AGENDA PERSONAL */}
             <Col md={6}>
               <div className="d-flex justify-content-between align-items-center mb-3 border-bottom pb-2">
                 <h6 className="fw-bold mb-0 text-info">📌 Mis Actividades</h6>
@@ -343,7 +402,6 @@ const Dashboard = () => {
                 </Button>
               </div>
 
-              {/* Formulario de Nueva Actividad */}
               {showFormAgenda && (
                 <Card className="border-info mb-3 shadow-sm bg-white">
                   <Card.Body className="p-3">
@@ -365,7 +423,6 @@ const Dashboard = () => {
                 </Card>
               )}
 
-              {/* Lista de Actividades Personales */}
               {agendaDelDiaSeleccionado.length === 0 && !showFormAgenda ? (
                 <p className="text-muted small">No hay recordatorios personales para este día.</p>
               ) : (
@@ -392,7 +449,6 @@ const Dashboard = () => {
         </Modal.Footer>
       </Modal>
 
-      {/* Estilos locales para las animaciones y el calendario */}
       <style>
         {`
           .hover-lift { transition: transform 0.2s ease, box-shadow 0.2s ease; }
@@ -404,13 +460,11 @@ const Dashboard = () => {
           .delay-2 { animation-delay: 0.2s; }
           @keyframes fadeUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
           
-          /* Ajustes limpios e interactivos para el calendario */
           .react-calendar { border: none !important; font-family: inherit !important; width: 100% !important; background: transparent; }
           .react-calendar__tile--active { background: var(--color-principal, #006A38) !important; border-radius: 8px; }
           .react-calendar__tile--now { background: rgba(0, 106, 56, 0.1) !important; border-radius: 8px; color: var(--color-principal); font-weight: bold; }
           .react-calendar__navigation button { font-weight: bold; font-size: 1.1rem; }
           
-          /* Colores dinámicos de eventos */
           .calendar-custom .has-citas {
             background-color: var(--color-secundario, #78BE20) !important; color: white !important; border-radius: 50% !important; font-weight: bold; transform: scale(0.9); transition: all 0.2s;
           }

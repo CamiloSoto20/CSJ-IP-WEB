@@ -29,26 +29,48 @@ const Login = () => {
     setError(null);
 
     try {
-      // NUEVO: Verificamos si ya existe una sesión activa en este navegador ANTES de procesar un nuevo login
+      // 1. Verificamos si ya existe una sesión activa en este navegador ANTES de procesar un nuevo login
       const { data: { session: existingSession } } = await supabase.auth.getSession();
       if (existingSession) {
         throw new Error("Ya hay una sesión activa en este navegador. Cierra la sesión actual antes de ingresar con otra cuenta.");
       }
 
-      // 1. Validar credenciales
+      // 2. Validar credenciales en Supabase Auth
       const { data, error: signInError } = await supabase.auth.signInWithPassword({ email, password });
       if (signInError) throw signInError;
       
       const user = data?.user;
 
-      // 2. BARRERA DE SESIÓN ÚNICA: Validamos si el ID del usuario ya figura como conectado
+      // 3. VALIDAR ESTADO DEL USUARIO (Bloqueado o Eliminado)
+      if (user) {
+        const { data: perfilData, error: perfilError } = await supabase
+          .from('perfiles')
+          .select('estado')
+          .eq('id', user.id)
+          .single();
+
+        if (perfilError) throw perfilError;
+
+        // Si está eliminado, lo sacamos y mostramos el mensaje exacto
+        if (perfilData?.estado === 'Eliminado') {
+          await supabase.auth.signOut();
+          throw new Error("Usuario no encontrado o eliminado.");
+        }
+
+        // Si está bloqueado, lo sacamos también
+        if (perfilData?.estado === 'Bloqueado') {
+          await supabase.auth.signOut();
+          throw new Error("Tu cuenta ha sido bloqueada. No tienes permiso para ingresar.");
+        }
+      }
+
+      // 4. BARRERA DE SESIÓN ÚNICA: Validamos si el ID del usuario ya figura como conectado
       if (user && usuariosOnline && usuariosOnline.includes(user.id)) {
-        // Cerramos la sesión recién creada para bloquear el paso
         await supabase.auth.signOut();
         throw new Error("Tu cuenta ya tiene una sesión activa. Debes cerrarla en el otro dispositivo o ventana para poder ingresar.");
       }
 
-      // 3. Redirección según rol
+      // 5. Redirección según rol
       const userEmail = email.toLowerCase();
       if (userEmail.includes('soporte')) {
         navigate('/panel-soporte');
@@ -58,7 +80,12 @@ const Login = () => {
         navigate('/dashboard');
       }
     } catch (error) {
-      setError(error.message);
+      // Manejo de errores más limpio para credenciales incorrectas de Supabase
+      if (error.message === "Invalid login credentials") {
+        setError("Credenciales incorrectas. Verifica tu correo y contraseña.");
+      } else {
+        setError(error.message);
+      }
     } finally {
       setLoading(false);
     }

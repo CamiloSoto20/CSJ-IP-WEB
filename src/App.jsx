@@ -17,6 +17,7 @@ import RecuperarPassword from './pages/recuperar/RecuperarPassword';
 import Estudiantes from './pages/coordinadora/Estudiantes';
 import PerfilEstudiante from './pages/coordinadora/PerfilEstudiante';
 import RegistroAtencion from './pages/coordinadora/RegistroAtencion';
+import ResumenGeneral from './pages/coordinadora/ResumenGeneral';
 
 // Formularios de Fichas
 import NuevaFichaSocial from './pages/coordinadora/fichas/NuevaFichaSocial';
@@ -75,6 +76,7 @@ function App() {
         {/* RUTAS ESTRICTAS - COORDINADORA */}
         <Route element={<ProtectedRoute allowedRoles={['coordinadora']}><DashboardLayout /></ProtectedRoute>}>
           <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/dashboard/resumen" element={<ResumenGeneral />} />
           <Route path="/dashboard/citas" element={<Citas />} />
           <Route path="/dashboard/charlas" element={<Charlas />} />
           <Route path="/dashboard/charlas/:id" element={<CharaDetalle />} />
@@ -82,6 +84,7 @@ function App() {
           <Route path="/dashboard/estudiantes" element={<Estudiantes />} />
           <Route path="/dashboard/estudiantes/:id" element={<PerfilEstudiante />} />
           <Route path="/dashboard/registro-atencion" element={<RegistroAtencion />} />
+
 
           {/* Fichas - Listado y Visor */}
           <Route path="/dashboard/fichas" element={<ListaFichas />} />
