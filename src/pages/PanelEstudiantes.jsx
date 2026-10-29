@@ -2,20 +2,21 @@ import { useState, useEffect } from 'react';
 import { Row, Col, Button, Badge, Spinner, Modal, Dropdown, Form } from 'react-bootstrap';
 import { useNavigate } from 'react-router-dom';
 import Calendar from 'react-calendar';
-import 'react-calendar/dist/Calendar.css';
+import 'react-calendar/dist/Calendar.css'; 
 import { supabase } from '../lib/supabase';
+import { useAuth } from '../context/AuthContext';
 import './PanelEstudiantes.css';
 
 const PanelEstudiante = () => {
   const [time, setTime] = useState(new Date());
   const [isDarkMode, setIsDarkMode] = useState(false);
   const navigate = useNavigate();
-
+  
   const [loading, setLoading] = useState(true);
-  const [perfil, setPerfil] = useState({ id: '', nombre: 'Cargando...', carrera: 'Cargando...' });
+  const [perfil, setPerfil] = useState({ id: '', nombre: 'Cargando...', carrera: 'Cargando...', rut: '', rol: '' });
   const [stats, setStats] = useState({ totalFichas: 0, totalCitas: 0, totalCharlas: 0 });
   const [participantes, setParticipantes] = useState([]);
-
+  
   const [fechaSeleccionada, setFechaSeleccionada] = useState(new Date());
   const [misCitas, setMisCitas] = useState([]);
   const [avisosRecientes, setAvisosRecientes] = useState([]);
@@ -24,28 +25,26 @@ const PanelEstudiante = () => {
   // Modales
   const [showAvisoModal, setShowAvisoModal] = useState(false);
   const [avisoSeleccionado, setAvisoSeleccionado] = useState(null);
-
+  
   const [showSupportModal, setShowSupportModal] = useState(false);
   const [supportData, setSupportData] = useState({ asunto: '', mensaje: '' });
   const [sendingSupport, setSendingSupport] = useState(false);
 
-  const [showPerfilModal, setShowPerfilModal] = useState(false);
-
-  // Modal de Recordatorio de Citas
+  // Modal Recordatorio de citas
   const [showRecordatorioModal, setShowRecordatorioModal] = useState(false);
   const [citasDelDiaSeleccionado, setCitasDelDiaSeleccionado] = useState([]);
+
+  // EXTRAEMOS LA LISTA DE USUARIOS ONLINE DESDE EL CONTEXTO GLOBAL (AuthContext)
+  const { usuariosOnline } = useAuth();
 
   useEffect(() => {
     const timer = setInterval(() => setTime(new Date()), 1000);
     return () => clearInterval(timer);
   }, []);
 
-  const fetchUsuarios = async (userId) => {
-    const { data } = await supabase.from('perfiles').select('id, nombre, estado, created_at, rol').neq('id', userId).order('created_at', { ascending: false }).limit(6);
-    if (data) setParticipantes(data);
-  };
-
   useEffect(() => {
+    let avisosChannel;
+
     const fetchDatosSistema = async () => {
       try {
         const { data: authData, error: authError } = await supabase.auth.getUser();
@@ -55,11 +54,12 @@ const PanelEstudiante = () => {
         const [
           perfilRes, fichasRes, citasRes, charlasRes, usuariosRes, misCitasRes, avisosRes
         ] = await Promise.all([
-          supabase.from('perfiles').select('id, nombre, rol, carrera').eq('id', userId).single(),
+          // EXTRAEMOS EL RUT DE LA BASE DE DATOS TAMBIÉN
+          supabase.from('perfiles').select('id, nombre, rol, carrera, rut').eq('id', userId).single(),
           supabase.from('social_records').select('*', { count: 'exact', head: true }).eq('professional_id', userId),
           supabase.from('appointments').select('*', { count: 'exact', head: true }),
           supabase.from('talks').select('*', { count: 'exact', head: true }),
-          supabase.from('perfiles').select('id, nombre, estado, created_at, rol').neq('id', userId).order('created_at', { ascending: false }).limit(6),
+          supabase.from('perfiles').select('id, nombre, estado, created_at, rol').neq('id', userId).order('nombre', { ascending: true }),
           supabase.from('appointments').select('id, fecha_cita, hora_cita, estado, nombre, rut').eq('estudiante_id', userId),
           supabase.from('information').select('*').in('categoria', ['IMPORTANTE', 'Salida', 'Recordatorio']).order('fecha_publicacion', { ascending: false }).limit(5)
         ]);
@@ -69,6 +69,7 @@ const PanelEstudiante = () => {
             id: perfilRes.data.id,
             nombre: perfilRes.data.nombre,
             carrera: perfilRes.data.carrera || 'No especificada',
+            rut: perfilRes.data.rut || 'No registrado',
             rol: perfilRes.data.rol
           });
         }
@@ -83,14 +84,21 @@ const PanelEstudiante = () => {
         if (misCitasRes.data) setMisCitas(misCitasRes.data);
         if (avisosRes.data) setAvisosRecientes(avisosRes.data);
 
-        // NUEVO: Suscripción en Tiempo Real para Usuarios (perfiles)
-        const channelUsuarios = supabase.channel('usuarios-estudiantes-realtime')
-          .on('postgres_changes', { event: '*', schema: 'public', table: 'perfiles' }, () => fetchUsuarios(userId))
-          .subscribe();
-
-        return () => {
-          supabase.removeChannel(channelUsuarios);
+        // NOTIFICACIONES AVISOS (Realtime)
+        if (avisosChannel) {
+          await supabase.removeChannel(avisosChannel);
         }
+
+        avisosChannel = supabase.channel('avisos-estudiantes');
+        
+        avisosChannel.on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'information' }, (payload) => {
+          const nuevoAviso = payload.new;
+          if (['IMPORTANTE', 'Salida', 'Recordatorio'].includes(nuevoAviso.categoria)) {
+            setAvisosRecientes(prevAvisos => [nuevoAviso, ...prevAvisos].slice(0, 5));
+          }
+        });
+
+        avisosChannel.subscribe();
 
       } catch (error) {
         console.error("Error al cargar datos:", error.message);
@@ -101,17 +109,8 @@ const PanelEstudiante = () => {
 
     fetchDatosSistema();
 
-    const channelAvisos = supabase.channel('avisos-estudiantes')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'information' }, (payload) => {
-        const nuevoAviso = payload.new;
-        if (['IMPORTANTE', 'Salida', 'Recordatorio'].includes(nuevoAviso.categoria)) {
-          setAvisosRecientes(prevAvisos => [nuevoAviso, ...prevAvisos].slice(0, 5));
-        }
-      })
-      .subscribe();
-
     return () => {
-      supabase.removeChannel(channelAvisos);
+      if (avisosChannel) supabase.removeChannel(avisosChannel);
     };
   }, []);
 
@@ -156,6 +155,7 @@ const PanelEstudiante = () => {
   const handleEliminarAviso = async (e, avisoId) => {
     e.stopPropagation();
     if (!window.confirm("¿Estás seguro de eliminar este aviso permanentemente de la base de datos?")) return;
+
     try {
       const { error } = await supabase.from('information').delete().eq('id', avisoId);
       if (error) throw error;
@@ -176,16 +176,16 @@ const PanelEstudiante = () => {
 
   const getCitasForDate = (date) => {
     const offset = date.getTimezoneOffset()
-    const localDate = new Date(date.getTime() - (offset * 60 * 1000))
+    const localDate = new Date(date.getTime() - (offset*60*1000))
     const formattedDate = localDate.toISOString().split('T')[0];
     return misCitas.filter(cita => cita.fecha_cita === formattedDate);
   };
 
   const tileClassName = ({ date, view }) => {
     if (view === 'month') {
-      const citasDelDia = getCitasForDate(date);
-      if (citasDelDia.length > 0) {
-        return 'has-citas';
+      const citasDia = getCitasForDate(date);
+      if (citasDia.length > 0) {
+        return 'has-citas'; 
       }
     }
     return null;
@@ -193,9 +193,9 @@ const PanelEstudiante = () => {
 
   const handleDayClick = (value) => {
     setFechaSeleccionada(value);
-    const citasDelDia = getCitasForDate(value);
-    if (citasDelDia.length > 0) {
-      setCitasDelDiaSeleccionado(citasDelDia);
+    const citasDia = getCitasForDate(value);
+    if (citasDia.length > 0) {
+      setCitasDelDiaSeleccionado(citasDia);
       setShowRecordatorioModal(true);
     }
   };
@@ -233,27 +233,14 @@ const PanelEstudiante = () => {
 
   return (
     <div className={`estudiante-wrapper ${isDarkMode ? 'dark-mode' : ''}`}>
-
-      {/* HEADER SUPERIOR */}
+      
       <div className="d-flex justify-content-between mb-4 align-items-center animate-up" style={{ position: 'relative', zIndex: 9999 }}>
-
-        <div className="d-flex align-items-center gap-2" style={{ cursor: 'pointer', minWidth: '200px' }} onClick={() => setShowPerfilModal(true)}>
-          <img
-            src="/assets/LOGO_CSJ.png"
-            alt="Logo Perfil"
-            className="rounded-circle shadow-sm"
-            style={{ width: '50px', height: '50px', objectFit: 'cover', border: `2px solid var(--color-principal)` }}
-            onError={(e) => { e.target.src = 'https://ui-avatars.com/api/?name=CSJ&background=006A38&color=fff'; }}
-          />
-          <div>
-            <div className="fw-bolder text-truncate" style={{ color: isDarkMode ? '#f8fafc' : '#212529', lineHeight: '1.2', maxWidth: '150px' }}>{perfil.nombre}</div>
-            <Badge bg="success" style={{ fontSize: '0.65rem' }}>{perfil.rol || 'Estudiante'}</Badge>
-          </div>
-        </div>
-
+        
+        {/* LOGO SUPERIOR (Ya no abre modal) */}
+ 
         <div className="d-none d-lg-flex justify-content-center flex-grow-1 px-4">
-          <img
-            src="/assets/banner-encabezado.png"
+          <img 
+            src="/assets/banner-encabezado.png" 
             alt="Banner Estudiante"
             className="img-fluid"
             style={{ maxHeight: '60px', objectFit: 'contain' }}
@@ -296,8 +283,8 @@ const PanelEstudiante = () => {
                   <div className="p-4 text-center text-muted small">No hay notificaciones recientes.</div>
                 ) : (
                   avisosVisibles.map(aviso => (
-                    <Dropdown.Item
-                      key={aviso.id}
+                    <Dropdown.Item 
+                      key={aviso.id} 
                       className={`text-wrap p-3 border-bottom d-flex gap-3 align-items-start ${isDarkMode ? 'text-light border-secondary hover-dark' : 'hover-light'}`}
                       onClick={() => { setAvisoSeleccionado(aviso); setShowAvisoModal(true); }}
                     >
@@ -321,9 +308,26 @@ const PanelEstudiante = () => {
       </div>
 
       <Row className="g-4 flex-grow-1">
-        {/* COLUMNA 1: Acciones Secundarias y Soporte */}
+        {/* COLUMNA 1: Perfil, Comunicaciones y Soporte TI Abajo */}
         <Col lg={3} className="d-flex flex-column gap-4 animate-up delay-1">
-          <div className="panel-card h-100 d-flex flex-column justify-content-between text-center p-4">
+          
+          {/* 1. PERFIL INCRUSTADO EN PANTALLA */}
+          <div className="panel-card text-center p-4">
+            <div className="mb-3 mx-auto bg-white rounded-circle d-flex align-items-center justify-content-center p-2 shadow-sm" style={{ width: '100px', height: '100px', border: '3px solid var(--color-principal)' }}>
+              <img src="/assets/LOGO_CSJ.png" alt="CSJ" className="img-fluid rounded-circle" onError={(e) => { e.target.src = 'https://ui-avatars.com/api/?name=CSJ&background=006A38&color=fff'; }} />
+            </div>
+            <h5 className="fw-bold mb-1" style={{ color: 'var(--color-principal)' }}>{perfil.nombre}</h5>
+            <p className="mb-1 text-muted fw-semibold">{perfil.carrera}</p>
+            <p className="mb-3 text-muted small">RUT: {perfil.rut}</p>
+            <Badge bg="success" className="px-3 py-2 rounded-pill fs-6 mb-4 text-capitalize">{perfil.rol}</Badge>
+            
+            <Button variant={isDarkMode ? "outline-light" : "outline-danger"} className="w-100 rounded-pill fw-bold py-2" onClick={handleLogout}>
+              Cerrar Sesión
+            </Button>
+          </div>
+
+          {/* 2. COMUNICACIONES Y SOPORTE TI */}
+          <div className="panel-card flex-grow-1 d-flex flex-column justify-content-between text-center p-4">
             <div>
               <h5 className="fw-bold mb-4" style={{ color: 'var(--color-principal, #006A38)' }}>Comunicaciones</h5>
               <div className="d-flex flex-column gap-3">
@@ -356,8 +360,8 @@ const PanelEstudiante = () => {
               <Col sm={6}><button className="action-btn" onClick={() => navigate('/panel-estudiante/charlas')}><span className="fs-4">📢</span> Charlas</button></Col>
               <Col sm={6}><button className="action-btn" onClick={() => navigate('/panel-estudiante/informacion')}><span className="fs-4">📰</span> Información</button></Col>
               <Col sm={12}>
-                <button
-                  className="action-btn w-100 justify-content-center"
+                <button 
+                  className="action-btn w-100 justify-content-center" 
                   style={{ backgroundColor: isDarkMode ? 'rgba(25, 135, 84, 0.2)' : 'rgba(25, 135, 84, 0.1)', color: '#198754', border: '1px solid rgba(25, 135, 84, 0.3)' }}
                   onClick={() => window.open('https://aulasvirtuales.santotomas.cl/login/index.php', '_blank')}
                 >
@@ -372,12 +376,12 @@ const PanelEstudiante = () => {
             <Row className="align-items-start">
               <Col md={12}>
                 <div className="mb-3 d-flex justify-content-center">
-                  <Calendar
+                  <Calendar 
                     onClickDay={handleDayClick}
-                    onChange={setFechaSeleccionada}
-                    value={fechaSeleccionada}
+                    onChange={setFechaSeleccionada} 
+                    value={fechaSeleccionada} 
                     tileClassName={tileClassName}
-                    className="rounded-4 shadow-sm border-0 calendar-custom"
+                    className="rounded-4 shadow-sm border-0 calendar-custom" 
                   />
                 </div>
                 <div className="p-3 rounded-4 text-center" style={{ backgroundColor: isDarkMode ? 'rgba(120, 190, 32, 0.1)' : 'rgba(120, 190, 32, 0.05)', border: '1px solid var(--color-secundario, #78BE20)' }}>
@@ -394,12 +398,12 @@ const PanelEstudiante = () => {
         {/* COLUMNA 3: Avisos Laterales y Participantes */}
         <Col lg={3} className="d-flex flex-column gap-4 animate-up delay-3">
           <div className="panel-card d-flex flex-column h-100">
-
+            
             <div className="d-flex justify-content-between align-items-center mb-3">
               <h5 className="fw-bold mb-0" style={{ color: 'var(--color-principal, #006A38)' }}>Muro de Avisos</h5>
               <Button variant="link" className="p-0 text-decoration-none small fw-bold" onClick={() => navigate('/panel-estudiante/informacion')}>Ver Todos</Button>
             </div>
-
+            
             <div className="mb-4">
               {avisosVisibles.length === 0 ? (
                 <p className="text-muted small text-center">No tienes avisos en el muro.</p>
@@ -407,10 +411,10 @@ const PanelEstudiante = () => {
                 avisosVisibles.map((aviso) => {
                   const estilos = getEstiloAvisoDinámico(aviso.categoria);
                   return (
-                    <div
-                      key={aviso.id}
-                      className="shadow-sm mb-3 overflow-hidden position-relative"
-                      style={{
+                    <div 
+                      key={aviso.id} 
+                      className="shadow-sm mb-3 overflow-hidden position-relative" 
+                      style={{ 
                         borderRadius: '12px', borderLeft: estilos.borderLeft, background: estilos.background,
                         transition: 'transform 0.2s ease, box-shadow 0.2s ease'
                       }}
@@ -420,8 +424,8 @@ const PanelEstudiante = () => {
                       <div className={`px-3 py-1 fw-bold text-${estilos.headerText} d-flex justify-content-between align-items-center text-uppercase`} style={{ backgroundColor: estilos.headerBg, fontSize: '0.8rem' }}>
                         <span>{estilos.icon} {aviso.categoria}</span>
                         <div className="d-flex gap-2">
-                          <span style={{ cursor: 'pointer' }} onClick={(e) => handleOcultarAviso(e, aviso.id)} title="Ocultar del muro">👁️</span>
-                          <span style={{ cursor: 'pointer' }} onClick={(e) => handleEliminarAviso(e, aviso.id)} title="Borrar aviso">🗑️</span>
+                           <span style={{ cursor: 'pointer' }} onClick={(e) => handleOcultarAviso(e, aviso.id)} title="Ocultar del muro">👁️</span>
+                           <span style={{ cursor: 'pointer' }} onClick={(e) => handleEliminarAviso(e, aviso.id)} title="Borrar aviso">🗑️</span>
                         </div>
                       </div>
                       <div className="p-3" style={{ cursor: 'pointer' }} onClick={() => { setAvisoSeleccionado(aviso); setShowAvisoModal(true); }}>
@@ -444,45 +448,31 @@ const PanelEstudiante = () => {
               {participantes.length === 0 ? (
                 <p className="text-muted small text-center mt-4">No hay otros usuarios registrados aún.</p>
               ) : (
-                participantes.map(p => (
-                  <div key={p.id} className="participante-item d-flex flex-column align-items-start gap-1 p-2 border-bottom" style={{ borderColor: isDarkMode ? '#333' : '#eee' }}>
-                    <div className="w-100 d-flex justify-content-between align-items-center">
-                      <span className="fw-bold text-truncate" style={{ fontSize: '0.90rem', color: isDarkMode ? '#e2e8f0' : '#333', maxWidth: '130px' }}>
-                        {p.nombre}
+                participantes.map(p => {
+                  const isOnline = usuariosOnline && usuariosOnline.includes(p.id);
+                  return (
+                    <div key={p.id} className="participante-item d-flex flex-column align-items-start gap-1 p-2 border-bottom" style={{ borderColor: isDarkMode ? '#333' : '#eee' }}>
+                      <div className="w-100 d-flex justify-content-between align-items-center">
+                        <span className="fw-bold text-truncate" style={{ fontSize: '0.90rem', color: isDarkMode ? '#e2e8f0' : '#333', maxWidth: '130px' }}>
+                          {p.nombre}
+                        </span>
+                        <Badge bg={getRoleBadgeColor(p.rol)} className="px-2 py-1 rounded-pill text-capitalize" style={{ fontSize: '0.65rem' }}>
+                          {p.rol || 'Estudiante'}
+                        </Badge>
+                      </div>
+                      <span className="text-muted fw-medium" style={{ fontSize: '0.70rem' }}>
+                        {isOnline ? '🟢 En línea' : `⚪ Offline / Últ. vez: ${formatearFecha(p.created_at)}`}
                       </span>
-                      <Badge bg={getRoleBadgeColor(p.rol)} className="px-2 py-1 rounded-pill text-capitalize" style={{ fontSize: '0.65rem' }}>
-                        {p.rol || 'Estudiante'}
-                      </Badge>
                     </div>
-                    <span className="text-muted" style={{ fontSize: '0.70rem' }}>
-                      {p.estado === 'Activo' ? '🟢 En línea / Activo' : `Últ. vez: ${formatearFecha(p.created_at)}`}
-                    </span>
-                  </div>
-                ))
+                  );
+                })
               )}
             </div>
           </div>
         </Col>
       </Row>
 
-      <Modal show={showPerfilModal} onHide={() => setShowPerfilModal(false)} centered>
-        <Modal.Header closeButton style={{ backgroundColor: 'var(--color-principal)', color: 'white' }}>
-          <Modal.Title className="fw-bold fs-5">Mi Perfil</Modal.Title>
-        </Modal.Header>
-        <Modal.Body className={`text-center py-4 ${isDarkMode ? 'bg-dark text-white' : 'bg-light text-dark'}`}>
-          <div className="mb-3 mx-auto bg-white rounded-circle d-flex align-items-center justify-content-center p-2 shadow-sm" style={{ width: '100px', height: '100px', border: '3px solid var(--color-principal)' }}>
-            <img src="/assets/LOGO_CSJ.png" alt="CSJ" className="img-fluid rounded-circle" onError={(e) => { e.target.src = 'https://ui-avatars.com/api/?name=CSJ&background=006A38&color=fff'; }} />
-          </div>
-          <h4 className="fw-bold mb-1" style={{ color: 'var(--color-principal)' }}>{perfil.nombre}</h4>
-          <p className="mb-2 text-muted fw-semibold">{perfil.carrera}</p>
-          <Badge bg="success" className="px-3 py-2 rounded-pill fs-6 mb-4 text-capitalize">{perfil.rol}</Badge>
-
-          <Button variant={isDarkMode ? "outline-light" : "outline-danger"} className="w-100 rounded-pill fw-bold py-2" onClick={handleLogout}>
-            Cerrar Sesión
-          </Button>
-        </Modal.Body>
-      </Modal>
-
+      {/* Modal Aviso Completo */}
       <Modal show={showAvisoModal} onHide={() => setShowAvisoModal(false)} centered size="lg">
         {avisoSeleccionado && (() => {
           const estilos = getEstiloAvisoDinámico(avisoSeleccionado.categoria);
@@ -514,6 +504,7 @@ const PanelEstudiante = () => {
         })()}
       </Modal>
 
+      {/* Modal Enviar Mensaje a Soporte */}
       <Modal show={showSupportModal} onHide={() => setShowSupportModal(false)} centered>
         <Modal.Header closeButton>
           <Modal.Title className="fw-bold text-danger">✉️ Contactar a Soporte TI</Modal.Title>
@@ -523,11 +514,11 @@ const PanelEstudiante = () => {
             <p className="text-muted small mb-3">Si experimentas problemas técnicos con la plataforma, describe tu situación y soporte lo revisará a la brevedad.</p>
             <Form.Group className="mb-3">
               <Form.Label className="fw-bold small">Asunto / Problema principal</Form.Label>
-              <Form.Control type="text" required value={supportData.asunto} onChange={(e) => setSupportData({ ...supportData, asunto: e.target.value })} placeholder="Ej: No puedo abrir una ficha, Error de conexión..." />
+              <Form.Control type="text" required value={supportData.asunto} onChange={(e) => setSupportData({...supportData, asunto: e.target.value})} placeholder="Ej: No puedo abrir una ficha, Error de conexión..." />
             </Form.Group>
             <Form.Group className="mb-4">
               <Form.Label className="fw-bold small">Detalles del problema</Form.Label>
-              <Form.Control as="textarea" rows={4} required value={supportData.mensaje} onChange={(e) => setSupportData({ ...supportData, mensaje: e.target.value })} placeholder="Explica detalladamente lo que ocurre..." />
+              <Form.Control as="textarea" rows={4} required value={supportData.mensaje} onChange={(e) => setSupportData({...supportData, mensaje: e.target.value})} placeholder="Explica detalladamente lo que ocurre..." />
             </Form.Group>
             <div className="d-flex justify-content-end gap-2">
               <Button variant="outline-secondary" onClick={() => setShowSupportModal(false)} disabled={sendingSupport}>Cancelar</Button>
@@ -539,6 +530,7 @@ const PanelEstudiante = () => {
         </Modal.Body>
       </Modal>
 
+      {/* Modal Recordatorio Citas */}
       <Modal show={showRecordatorioModal} onHide={() => setShowRecordatorioModal(false)} centered>
         <Modal.Header closeButton style={{ backgroundColor: 'var(--color-principal)', color: 'white' }}>
           <Modal.Title className="fw-bold fs-5">📅 Recordatorio de Citas</Modal.Title>
@@ -567,22 +559,6 @@ const PanelEstudiante = () => {
         </Modal.Footer>
       </Modal>
 
-      <style>
-        {`
-          .calendar-custom .has-citas {
-            background-color: var(--color-secundario, #78BE20) !important;
-            color: white !important;
-            border-radius: 50% !important;
-            font-weight: bold;
-            box-shadow: 0 4px 8px rgba(120, 190, 32, 0.4);
-            transform: scale(0.9);
-          }
-          .calendar-custom .has-citas:hover {
-            background-color: var(--color-principal, #006A38) !important;
-            transform: scale(1);
-          }
-        `}
-      </style>
     </div>
   );
 };
